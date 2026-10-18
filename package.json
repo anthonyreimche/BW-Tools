@@ -1,0 +1,21 @@
+{
+  "name": "safelight-black-and-white",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Black & White extension for Safelight: scene-linear monochrome conversion with film responses, colour filters, an eight-colour mix with Auto and an on-image tool, selective colour and print toning.",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:gpu": "node test/gpu/run.cjs"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.10"
+  },
+  "keywords": ["safelight-extension"],
+  "license": "MIT"
+}
