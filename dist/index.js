@@ -244,27 +244,122 @@ function f(e) {
 	return `vec3(${e.map(d).join(", ")})`;
 }
 //#endregion
+//#region src/params.ts
+var p = "black-and-white", m = `${p}.convert`, h = `${p}.tone`, g = `${p}.panel`, _ = `${p}.target`, v = `${p}.toggle`;
+function y(e, t, n, r, i, a, o = "float") {
+	return {
+		stage: e,
+		key: t,
+		type: o,
+		def: n,
+		min: r,
+		max: i,
+		label: a
+	};
+}
+var b = y("convert", "on", 0, 0, 1, "Black & White"), x = y("tone", "on", 0, 0, 1, "Black & White"), S = r.map((e, t) => y("convert", `band${t}`, 0, -100, 100, e)), C = {
+	response: y("convert", "response", 0, 0, 6, "Response", "int"),
+	filterType: y("convert", "filterType", 0, 0, 8, "Filter", "int"),
+	filterStrength: y("convert", "filterStrength", 100, 0, 100, "Filter strength"),
+	mixR: y("convert", "mixR", 21, -200, 200, "Custom red"),
+	mixG: y("convert", "mixG", 72, -200, 200, "Custom green"),
+	mixB: y("convert", "mixB", 7, -200, 200, "Custom blue"),
+	keepHue: y("convert", "keepHue", 0, 0, 360, "Keep hue"),
+	keepRange: y("convert", "keepRange", 30, 5, 90, "Keep range"),
+	keepAmount: y("convert", "keepAmount", 0, 0, 100, "Keep amount"),
+	toner: y("tone", "toner", 0, 0, 7, "Toner", "int"),
+	tonerStrength: y("tone", "tonerStrength", 100, 0, 100, "Toner strength"),
+	hiHue: y("tone", "hiHue", 40, 0, 360, "Highlights hue"),
+	hiSat: y("tone", "hiSat", 0, 0, 100, "Highlights saturation"),
+	shHue: y("tone", "shHue", 220, 0, 360, "Shadows hue"),
+	shSat: y("tone", "shSat", 0, 0, 100, "Shadows saturation"),
+	balance: y("tone", "balance", 0, -100, 100, "Balance"),
+	paperHue: y("tone", "paperHue", 40, 0, 360, "Paper hue"),
+	paperSat: y("tone", "paperSat", 0, 0, 100, "Paper saturation")
+}, w = Object.keys(C), T = (e) => w.map((e) => C[e]).filter((t) => t.stage === e), ee = [
+	"toner",
+	"hiSat",
+	"shSat",
+	"paperSat"
+].map((e) => C[e]), te = [
+	b,
+	...T("convert"),
+	...S,
+	x,
+	...T("tone")
+], E = (e) => `${e.stage === "convert" ? m : h}.${e.key}`, D = {
+	convertOn: E(b),
+	toneOn: E(x)
+};
+function O(e, t) {
+	if (typeof t != "number" || !Number.isFinite(t)) return e.def;
+	let n = Math.min(e.max, Math.max(e.min, t));
+	return e.type === "int" ? Math.round(n) : n;
+}
+function k(e, t) {
+	return O(t, e[E(t)]);
+}
+function A(e) {
+	return {
+		...Object.fromEntries(w.map((t) => [t, k(e, C[t])])),
+		on: k(e, b) > .5,
+		bands: S.map((t) => k(e, t))
+	};
+}
+var j = A({});
+function M(e) {
+	let t = +!!e;
+	return {
+		[D.convertOn]: t,
+		[D.toneOn]: t
+	};
+}
+function N(e) {
+	let t = {};
+	e.on !== void 0 && Object.assign(t, M(e.on)), e.bands?.forEach((e, n) => {
+		t[E(S[n])] = O(S[n], e);
+	});
+	for (let n of w) {
+		let r = e[n];
+		r !== void 0 && (t[E(C[n])] = O(C[n], r));
+	}
+	return t;
+}
+function P(e, t) {
+	return { [E(C[e])]: O(C[e], t) };
+}
+function ne() {
+	return N(j);
+}
+function F(e) {
+	return k(e, b) > .5;
+}
+function re(e) {
+	let t = F(e);
+	return t === k(e, x) > .5 ? null : { [D.toneOn]: +!!t };
+}
+//#endregion
 //#region src/model.ts
-var p = (e) => e < 0 ? 0 : e > 1 ? 1 : e;
-function m(e, t, n) {
-	let r = p((n - e) / (t - e));
+var I = (e) => e < 0 ? 0 : e > 1 ? 1 : e;
+function ie(e, t, n) {
+	let r = I((n - e) / (t - e));
 	return r * r * (3 - 2 * r);
 }
-function h(e) {
-	let t = p(e);
+function ae(e) {
+	let t = I(e);
 	return t < .0031308 ? t * 12.92 : 1.055 * t ** (1 / 2.4) - .055;
 }
-function g(e) {
+function oe(e) {
 	return e < .04045 ? e / 12.92 : ((e + .055) / 1.055) ** 2.4;
 }
-var _ = (e, t) => e - t * Math.floor(e / t);
-function v(e) {
+var se = (e, t) => e - t * Math.floor(e / t);
+function ce(e) {
 	let [t, n, r] = e, i = Math.max(t, n, r) - Math.min(t, n, r);
 	if (i < 1e-6) return 0;
 	let a;
-	return a = t >= n && t >= r ? _((n - r) / i, 6) : n >= r ? (r - t) / i + 2 : (t - n) / i + 4, a * 60;
+	return a = t >= n && t >= r ? se((n - r) / i, 6) : n >= r ? (r - t) / i + 2 : (t - n) / i + 4, a * 60;
 }
-function y(e) {
+function le(e) {
 	let t = Math.max(e[0], e[1], e[2]);
 	if (t <= 1e-6) return {
 		hue: 0,
@@ -275,15 +370,15 @@ function y(e) {
 		0,
 		1,
 		2
-	].map((n) => h(Math.max(e[n], 0) / t)), r = 1 - Math.min(n[0], n[1], n[2]);
+	].map((n) => ae(Math.max(e[n], 0) / t)), r = 1 - Math.min(n[0], n[1], n[2]);
 	return {
-		hue: v(n),
+		hue: ce(n),
 		sat: r,
-		chroma: m(0, .5, r)
+		chroma: ie(0, .5, r)
 	};
 }
-function b(e, t) {
-	let n = _(e - i[t] + 540, 360) - 180, r = a[t], s = o[t], c;
+function ue(e, t) {
+	let n = se(e - i[t] + 540, 360) - 180, r = a[t], s = o[t], c;
 	if (n <= 0) {
 		if (n <= -r) return 0;
 		c = (n + r) / r;
@@ -293,12 +388,12 @@ function b(e, t) {
 	}
 	return c * c * (3 - 2 * c);
 }
-function x(e) {
+function de(e) {
 	let r = (t[e.response] ?? t[0]).weights ?? [
 		e.mixR / 100,
 		e.mixG / 100,
 		e.mixB / 100
-	], i = (n[e.filterType] ?? n[0]).transmission, a = p(e.filterStrength / 100), o = [
+	], i = (n[e.filterType] ?? n[0]).transmission, a = I(e.filterStrength / 100), o = [
 		r[0] * (1 + (i[0] - 1) * a),
 		r[1] * (1 + (i[1] - 1) * a),
 		r[2] * (1 + (i[2] - 1) * a)
@@ -311,20 +406,20 @@ function x(e) {
 }
 //#endregion
 //#region src/frame.ts
-var S = Float64Array.from({ length: 256 }, (e, t) => g(t / 255));
-function C(e, t) {
+var L = Float64Array.from({ length: 256 }, (e, t) => oe(t / 255));
+function fe(e, t) {
 	let n = t * 4;
 	return [
-		S[e.data[n]],
-		S[e.data[n + 1]],
-		S[e.data[n + 2]]
+		L[e.data[n]],
+		L[e.data[n + 1]],
+		L[e.data[n + 2]]
 	];
 }
-function w(e, t, n) {
+function pe(e, t, n) {
 	if (!(t >= 0 && t <= 1 && n >= 0 && n <= 1)) return null;
 	let { width: r, height: i } = e, a = Math.min(r - 1, Math.floor(t * r)), o = Math.min(i - 1, Math.floor(n * i)), s = 0, c = 0, l = 0, u = 0;
 	for (let t = Math.max(0, o - 2); t <= Math.min(i - 1, o + 2); t++) for (let n = Math.max(0, a - 2); n <= Math.min(r - 1, a + 2); n++) {
-		let i = C(e, t * r + n);
+		let i = fe(e, t * r + n);
 		s += i[0], c += i[1], l += i[2], u++;
 	}
 	return [
@@ -335,8 +430,8 @@ function w(e, t, n) {
 }
 //#endregion
 //#region src/auto.ts
-var T = .05, ee = .02, te = 3, ne = 10;
-function re(e) {
+var R = .05, me = .02, he = 3, ge = 10;
+function _e(e) {
 	let t = e >>> 0;
 	return () => {
 		t = t + 1831565813 >>> 0;
@@ -344,19 +439,19 @@ function re(e) {
 		return e = Math.imul(e ^ e >>> 15, e | 1), e ^= e + Math.imul(e ^ e >>> 7, e | 61), ((e ^ e >>> 14) >>> 0) / 4294967296;
 	};
 }
-function ie(e, t, n = 24301) {
-	let { data: r, width: i, height: a } = e, o = i * a, s = x(t), c = new Float64Array(o), l = new Float64Array(o), u = new Float64Array(o * 8);
+function ve(e, t, n = 24301) {
+	let { data: r, width: i, height: a } = e, o = i * a, s = de(t), c = new Float64Array(o), l = new Float64Array(o), u = new Float64Array(o * 8);
 	for (let t = 0; t < o; t++) {
-		let n = C(e, t);
+		let n = fe(e, t);
 		c[t] = Math.max(s[0] * n[0] + s[1] * n[1] + s[2] * n[2], 0);
-		let r = y(n);
+		let r = le(n);
 		l[t] = r.chroma;
-		for (let e = 0; e < 8; e++) u[t * 8 + e] = b(r.hue, e);
+		for (let e = 0; e < 8; e++) u[t * 8 + e] = ue(r.hue, e);
 	}
 	let d = [], f = [], p = (e, t) => {
 		let n = Math.hypot(r[e * 4] - r[t * 4], r[e * 4 + 1] - r[t * 4 + 1], r[e * 4 + 2] - r[t * 4 + 2]) / 255 / Math.SQRT2;
 		n < .05 || (d.push(e, t), f.push(n));
-	}, m = re(n), h = Int32Array.from({ length: o }, (e, t) => t);
+	}, m = _e(n), h = Int32Array.from({ length: o }, (e, t) => t);
 	for (let e = o - 1; e > 0; e--) {
 		let t = Math.floor(m() * (e + 1)), n = h[e];
 		h[e] = h[t], h[t] = n;
@@ -374,24 +469,24 @@ function ie(e, t, n = 24301) {
 		delta: Float64Array.from(f)
 	};
 }
-function ae(e, t) {
+function z(e, t) {
 	let n = e.base.length, r = new Float64Array(n);
 	for (let i = 0; i < n; i++) {
 		let n = 0;
 		for (let r = 0; r < 8; r++) n += t[r] / 100 * e.weights[i * 8 + r];
-		r[i] = h(e.base[i] * 2 ** (2 * e.chroma[i] * n));
+		r[i] = ae(e.base[i] * 2 ** (2 * e.chroma[i] * n));
 	}
 	let i = e.delta.length, a = 0;
 	for (let t = 0; t < i; t++) {
-		let n = r[e.pairs[2 * t]] - r[e.pairs[2 * t + 1]], i = e.delta[t], o = -((n + i) ** 2) / (T * T), s = -((n - i) ** 2) / (T * T);
+		let n = r[e.pairs[2 * t]] - r[e.pairs[2 * t + 1]], i = e.delta[t], o = -((n + i) ** 2) / (R * R), s = -((n - i) ** 2) / (R * R);
 		a += Math.max(o, s) + Math.log1p(Math.exp(-Math.abs(o - s)));
 	}
 	let o = 0;
 	for (let e of t) o += (e / 100) ** 2;
-	return (i > 0 ? a / i : 0) - ee * o;
+	return (i > 0 ? a / i : 0) - me * o;
 }
-function oe(e, t) {
-	let n = ie(e, t), r = [
+function ye(e, t) {
+	let n = ve(e, t), r = [
 		0,
 		0,
 		0,
@@ -400,14 +495,14 @@ function oe(e, t) {
 		0,
 		0,
 		0
-	], i = ae(n, r);
-	for (let e = 0; e < te; e++) for (let e = 0; e < 8; e++) {
+	], i = z(n, r);
+	for (let e = 0; e < he; e++) for (let e = 0; e < 8; e++) {
 		let t = r[e];
-		for (let a = -100; a <= 100; a += ne) {
+		for (let a = -100; a <= 100; a += ge) {
 			if (a === r[e]) continue;
 			let o = r.slice();
 			o[e] = a;
-			let s = ae(n, o);
+			let s = z(n, o);
 			(s > i + 1e-12 || Math.abs(s - i) <= 1e-12 && Math.abs(a) < Math.abs(t)) && (i = s, t = a);
 		}
 		r[e] = t;
@@ -415,142 +510,52 @@ function oe(e, t) {
 	return r;
 }
 //#endregion
-//#region src/params.ts
-var E = "black-and-white", se = `${E}.convert`, ce = `${E}.tone`, le = `${E}.panel`, ue = `${E}.target`, de = `${E}.toggle`;
-function D(e, t, n, r, i, a, o = "float") {
-	return {
-		stage: e,
-		key: t,
-		type: o,
-		def: n,
-		min: r,
-		max: i,
-		label: a
-	};
-}
-var O = D("convert", "on", 0, 0, 1, "Black & White"), k = D("tone", "on", 0, 0, 1, "Black & White"), A = r.map((e, t) => D("convert", `band${t}`, 0, -100, 100, e)), j = {
-	response: D("convert", "response", 0, 0, 6, "Response", "int"),
-	filterType: D("convert", "filterType", 0, 0, 8, "Filter", "int"),
-	filterStrength: D("convert", "filterStrength", 100, 0, 100, "Filter strength"),
-	mixR: D("convert", "mixR", 21, -200, 200, "Custom red"),
-	mixG: D("convert", "mixG", 72, -200, 200, "Custom green"),
-	mixB: D("convert", "mixB", 7, -200, 200, "Custom blue"),
-	keepHue: D("convert", "keepHue", 0, 0, 360, "Keep hue"),
-	keepRange: D("convert", "keepRange", 30, 5, 90, "Keep range"),
-	keepAmount: D("convert", "keepAmount", 0, 0, 100, "Keep amount"),
-	toner: D("tone", "toner", 0, 0, 7, "Toner", "int"),
-	tonerStrength: D("tone", "tonerStrength", 100, 0, 100, "Toner strength"),
-	hiHue: D("tone", "hiHue", 40, 0, 360, "Highlights hue"),
-	hiSat: D("tone", "hiSat", 0, 0, 100, "Highlights saturation"),
-	shHue: D("tone", "shHue", 220, 0, 360, "Shadows hue"),
-	shSat: D("tone", "shSat", 0, 0, 100, "Shadows saturation"),
-	balance: D("tone", "balance", 0, -100, 100, "Balance"),
-	paperHue: D("tone", "paperHue", 40, 0, 360, "Paper hue"),
-	paperSat: D("tone", "paperSat", 0, 0, 100, "Paper saturation")
-}, M = Object.keys(j), fe = (e) => M.map((e) => j[e]).filter((t) => t.stage === e), pe = [
-	O,
-	...fe("convert"),
-	...A,
-	k,
-	...fe("tone")
-], N = (e) => `${e.stage === "convert" ? se : ce}.${e.key}`, P = {
-	convertOn: N(O),
-	toneOn: N(k)
-};
-function F(e, t) {
-	if (typeof t != "number" || !Number.isFinite(t)) return e.def;
-	let n = Math.min(e.max, Math.max(e.min, t));
-	return e.type === "int" ? Math.round(n) : n;
-}
-function I(e, t) {
-	return F(t, e[N(t)]);
-}
-function L(e) {
-	return {
-		...Object.fromEntries(M.map((t) => [t, I(e, j[t])])),
-		on: I(e, O) > .5,
-		bands: A.map((t) => I(e, t))
-	};
-}
-var me = L({});
-function R(e) {
-	let t = +!!e;
-	return {
-		[P.convertOn]: t,
-		[P.toneOn]: t
-	};
-}
-function z(e) {
-	let t = {};
-	e.on !== void 0 && Object.assign(t, R(e.on)), e.bands?.forEach((e, n) => {
-		t[N(A[n])] = F(A[n], e);
-	});
-	for (let n of M) {
-		let r = e[n];
-		r !== void 0 && (t[N(j[n])] = F(j[n], r));
-	}
-	return t;
-}
-function he(e, t) {
-	return { [N(j[e])]: F(j[e], t) };
-}
-function ge() {
-	return z(me);
-}
-function B(e) {
-	return I(e, O) > .5;
-}
-function _e(e) {
-	let t = B(e);
-	return t === I(e, k) > .5 ? null : { [P.toneOn]: +!!t };
-}
-//#endregion
 //#region src/runtime.ts
-var V = null;
-function ve(e) {
-	V = e;
+var B = null;
+function be(e) {
+	B = e;
 }
-function H() {
-	if (!V) throw Error("[black-and-white] api() called before activate()");
-	return V;
+function V() {
+	if (!B) throw Error("[black-and-white] api() called before activate()");
+	return B;
 }
-function U(e, t, ...n) {
-	return H().react.createElement(e, t, ...n);
+function H(e, t, ...n) {
+	return V().react.createElement(e, t, ...n);
 }
 //#endregion
 //#region src/sample.ts
-var W = null;
-function ye(e, t) {
+var U = null;
+function xe(e, t) {
 	let { width: n, height: r } = e;
 	if (n < 2 || r < 2) return null;
 	let i = Math.min(1, t / Math.max(n, r)), a = Math.max(1, Math.round(n * i)), o = Math.max(1, Math.round(r * i));
-	W ||= new OffscreenCanvas(a, o), W.width !== a && (W.width = a), W.height !== o && (W.height = o);
-	let s = W.getContext("2d", { willReadFrequently: !0 });
+	U ||= new OffscreenCanvas(a, o), U.width !== a && (U.width = a), U.height !== o && (U.height = o);
+	let s = U.getContext("2d", { willReadFrequently: !0 });
 	return s ? (s.drawImage(e, 0, 0, a, o), {
 		data: s.getImageData(0, 0, a, o).data,
 		width: a,
 		height: o
 	}) : null;
 }
-function be(e) {
+function Se(e) {
 	return {
 		...e,
-		[P.convertOn]: 0,
-		[P.toneOn]: 0
+		[D.convertOn]: 0,
+		[D.toneOn]: 0
 	};
 }
-function xe() {
-	let e = H();
+function Ce() {
+	let e = V();
 	return {
 		develop: () => e.stores.useDevelopStore.getState(),
 		render: (t, n, r) => e.develop.renderPhotoFrame(t, n, r),
-		readback: ye
+		readback: xe
 	};
 }
-async function Se(e, t = xe()) {
+async function we(e, t = Ce()) {
 	let n = t.develop();
 	if (!n.photoId) return null;
-	let r = await t.render(n.photoId, n.previewParams ?? n.params, be(n.paramBag));
+	let r = await t.render(n.photoId, n.previewParams ?? n.params, Se(n.paramBag));
 	if (!r) return null;
 	try {
 		return t.readback(r, e);
@@ -560,45 +565,45 @@ async function Se(e, t = xe()) {
 }
 //#endregion
 //#region src/actions.ts
-var G = "Black & White", K = "Colour";
-function Ce(e, t) {
+var W = "Black & White", G = "Colour";
+function Te(e, t) {
 	return e === "develop" || new URLSearchParams(t).get("detached") === "develop";
 }
-function we() {
-	return Ce(H().stores.useUIStore.getState().activeModule, globalThis.location?.search ?? "");
+function Ee() {
+	return Te(V().stores.useUIStore.getState().activeModule, globalThis.location?.search ?? "");
 }
-function Te() {
+function De() {
 	return {
-		develop: H().stores.useDevelopStore,
-		inDevelop: we
+		develop: V().stores.useDevelopStore,
+		inDevelop: Ee
 	};
 }
-function Ee(e = Te()) {
+function Oe(e = De()) {
 	if (!e.inDevelop()) return;
 	let t = e.develop.getState();
 	if (!t.photoId) return;
-	let n = !B(t.paramBag);
-	t.setDynParams(R(n)), t.commitEdit(n ? G : K);
+	let n = !F(t.paramBag);
+	t.setDynParams(M(n)), t.commitEdit(n ? W : G);
 }
-function De() {
-	let e = H(), t = e.stores.useCatalogStore;
+function ke() {
+	let e = V(), t = e.stores.useCatalogStore;
 	return {
 		develop: e.stores.useDevelopStore,
 		asShot: (e) => t.getState().photos.find((t) => t.id === e)?.exif.colorTemperature,
 		restoreId: t.getState().activePhotoId ?? e.stores.useDevelopStore.getState().photoId,
-		inDevelop: we,
+		inDevelop: Ee,
 		warn: (e) => console.warn(e),
 		yieldToUi: () => new Promise((e) => setTimeout(e, 0))
 	};
 }
-var q = !1;
-async function Oe(e, t, n) {
+var K = !1;
+async function Ae(e, t, n) {
 	let r = [], i = [];
-	if (q) return n.warn("[black-and-white] A conversion is already running."), {
+	if (K) return n.warn("[black-and-white] A conversion is already running."), {
 		converted: r,
 		failed: i
 	};
-	q = !0;
+	K = !0;
 	try {
 		let a = n.develop.getState().photoId, o = !0, s = n.inDevelop();
 		try {
@@ -615,7 +620,7 @@ async function Oe(e, t, n) {
 						o = !1;
 						break;
 					}
-					a = c, B(e.paramBag) !== t && (e.setDynParams(R(t)), await e.commitEdit(t ? G : K), r.push(c));
+					a = c, F(e.paramBag) !== t && (e.setDynParams(M(t)), await e.commitEdit(t ? W : G), r.push(c));
 				} catch {
 					i.push(c);
 				}
@@ -629,21 +634,21 @@ async function Oe(e, t, n) {
 			}
 		}
 	} finally {
-		q = !1;
+		K = !1;
 	}
 	return i.length > 0 && n.warn(`[black-and-white] ${i.length} photo(s) could not be converted: ${i.join(", ")}`), {
 		converted: r,
 		failed: i
 	};
 }
-var ke = (e) => (t) => t.length > 1 ? `${e} (${t.length})` : e;
-function Ae() {
+var q = (e) => (t) => t.length > 1 ? `${e} (${t.length})` : e;
+function je() {
 	return {
-		develop: H().stores.useDevelopStore,
-		render: () => Se(64)
+		develop: V().stores.useDevelopStore,
+		render: () => we(64)
 	};
 }
-async function je(e = Ae()) {
+async function Me(e = je()) {
 	let t = e.develop.getState().photoId;
 	if (!t) return !1;
 	let n;
@@ -654,16 +659,16 @@ async function je(e = Ae()) {
 	}
 	if (!n) return !1;
 	let r = e.develop.getState();
-	return r.photoId === t && (r.setDynParams(z({ bands: oe(n, L(r.paramBag)) })), await r.commitEdit("Black & White Auto"), !0);
+	return r.photoId === t && (r.setDynParams(N({ bands: ye(n, A(r.paramBag)) })), await r.commitEdit("Black & White Auto"), !0);
 }
 //#endregion
 //#region src/store.ts
-function Me(e, t) {
+function Ne(e, t) {
 	return e && t !== null && e.photoId === t ? e.sample : null;
 }
 var J = null;
-function Ne() {
-	J = H().stores.create((e) => ({
+function Pe() {
+	J = V().stores.create((e) => ({
 		target: !1,
 		frame: null,
 		auto: "idle",
@@ -681,27 +686,27 @@ function Y() {
 }
 //#endregion
 //#region src/Panel.ts
-var Pe = { padding: "6px 8px 8px" }, Fe = {
+var Fe = { padding: "6px 8px 8px" }, Ie = {
 	margin: 0,
 	fontSize: 10,
 	lineHeight: 1.4,
 	color: "var(--color-text-muted)"
-}, Ie = {
+}, Le = {
 	fontSize: 11,
 	color: "var(--color-text-secondary)",
 	whiteSpace: "nowrap"
-}, Le = {
+}, Re = {
 	flex: "1 1 auto",
 	minWidth: 0
-}, Re = 2e3, X = "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)";
-function ze(e) {
+}, ze = 2e3, X = "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)";
+function Be(e) {
 	return e ? `Press ${e} or choose Black & White.` : "Choose Black & White to convert this photo.";
 }
-function Be(e) {
-	let [t, n, r] = x(e);
+function Ve(e) {
+	let [t, n, r] = de(e);
 	return `Normalised: R ${t.toFixed(2)} · G ${n.toFixed(2)} · B ${r.toFixed(2)}`;
 }
-async function Ve(e = je) {
+async function He(e = Me) {
 	Y().getState().setAuto("busy");
 	let t = !1;
 	try {
@@ -713,21 +718,21 @@ async function Ve(e = je) {
 	}
 	t || setTimeout(() => {
 		Y().getState().auto === "failed" && Y().getState().setAuto("idle");
-	}, Re);
+	}, ze);
 }
-function He() {
-	let { Slider: e } = H().components, { Button: i, Select: a, SegmentedControl: o, Section: c, Row: l, Stack: u } = H().ui, d = H().stores.useDevelopStore, f = d((e) => e.paramBag), p = d((e) => e.photoId), m = Y()((e) => e.target), h = Y()((e) => e.auto), g = L(f), _ = (e) => d.getState().setDynParams(e), v = (e) => void d.getState().commitEdit(`Black & White ${e}`), y = (t, n, r, i, a) => U(e, {
+function Ue() {
+	let { Slider: e } = V().components, { Button: i, Select: a, SegmentedControl: o, Section: c, Row: l, Stack: u } = V().ui, d = V().stores.useDevelopStore, f = d((e) => e.paramBag), p = d((e) => e.photoId), m = Y()((e) => e.target), h = Y()((e) => e.auto), g = A(f), _ = (e) => d.getState().setDynParams(e), y = (e) => void d.getState().commitEdit(`Black & White ${e}`), b = (t, n, r, i, a) => H(e, {
 		key: n,
 		label: t,
 		value: g[n],
 		min: r,
 		max: i,
 		step: 1,
-		defaultValue: me[n],
+		defaultValue: j[n],
 		trackBackground: a,
-		onChange: (e) => _(he(n, e)),
-		onCommit: () => v(t.toLowerCase())
-	}), b = (t, n) => U(e, {
+		onChange: (e) => _(P(n, e)),
+		onCommit: () => y(t.toLowerCase())
+	}), x = (t, n) => H(e, {
 		key: `band${n}`,
 		label: t,
 		value: g.bands[n],
@@ -736,14 +741,14 @@ function He() {
 		step: 1,
 		defaultValue: 0,
 		onChange: (e) => {
-			let t = [...L(d.getState().paramBag).bands];
-			t[n] = e, _(z({ bands: t }));
+			let t = [...A(d.getState().paramBag).bands];
+			t[n] = e, _(N({ bands: t }));
 		},
-		onCommit: () => v(`${t.toLowerCase()} mix`)
-	}), x = (e, t, n) => U(l, {
+		onCommit: () => y(`${t.toLowerCase()} mix`)
+	}), S = (e, t, n) => H(l, {
 		key: t,
 		gap: 6
-	}, U("span", { style: Ie }, e), U("div", { style: Le }, U(a, {
+	}, H("span", { style: Le }, e), H("div", { style: Re }, H(a, {
 		value: String(g[t]),
 		ariaLabel: e,
 		options: n.map((e, t) => ({
@@ -751,11 +756,11 @@ function He() {
 			label: e.label
 		})),
 		onChange: (n) => {
-			_(he(t, Number(n))), v(e.toLowerCase());
+			_(P(t, Number(n))), y(e.toLowerCase());
 		}
-	}))), S = (e) => {
-		e !== L(d.getState().paramBag).on && (_(R(e)), d.getState().commitEdit(e ? G : K));
-	}, C = U(o, {
+	}))), C = (e) => {
+		e !== A(d.getState().paramBag).on && (_(M(e)), d.getState().commitEdit(e ? W : G));
+	}, w = H(o, {
 		key: "treatment",
 		value: g.on ? "bw" : "colour",
 		size: "sm",
@@ -766,51 +771,51 @@ function He() {
 			value: "bw",
 			label: "Black & White"
 		}],
-		onChange: (e) => S(e === "bw")
+		onChange: (e) => C(e === "bw")
 	});
-	if (!g.on) return U(u, {
+	if (!g.on) return H(u, {
 		gap: 6,
-		style: Pe
-	}, C, U("p", {
-		key: "hint",
 		style: Fe
-	}, ze(H().keybindings.getBinding(de))));
-	let w = g.response === 6, T = U(l, { gap: 4 }, U(i, {
+	}, w, H("p", {
+		key: "hint",
+		style: Ie
+	}, Be(V().keybindings.getBinding(v))));
+	let T = g.response === 6, ee = H(l, { gap: 4 }, H(i, {
 		size: "sm",
 		disabled: !p || h === "busy",
 		title: "Set the eight colours so the photo's colour contrast survives in grey",
-		onClick: () => void Ve()
-	}, h === "failed" ? "Couldn't read the photo" : "Auto"), U(i, {
+		onClick: () => void He()
+	}, h === "failed" ? "Couldn't read the photo" : "Auto"), H(i, {
 		size: "sm",
 		active: m,
 		disabled: !p,
 		title: "Drag up or down over a colour in the photo to lighten or darken it (Esc ends)",
 		onClick: () => Y().getState().setTarget(!m)
 	}, "Target"));
-	return U(u, {
+	return H(u, {
 		gap: 8,
-		style: Pe
-	}, C, U(c, {
+		style: Fe
+	}, w, H(c, {
 		key: "conversion",
 		title: "Conversion"
-	}, U(u, { gap: 4 }, x("Response", "response", t), w ? y("Red", "mixR", -200, 200) : null, w ? y("Green", "mixG", -200, 200) : null, w ? y("Blue", "mixB", -200, 200) : null, w ? U("p", {
+	}, H(u, { gap: 4 }, S("Response", "response", t), T ? b("Red", "mixR", -200, 200) : null, T ? b("Green", "mixG", -200, 200) : null, T ? b("Blue", "mixB", -200, 200) : null, T ? H("p", {
 		key: "weights",
-		style: Fe
-	}, Be(g)) : null, x("Filter", "filterType", n), g.filterType === 0 ? null : y("Strength", "filterStrength", 0, 100))), U(c, {
+		style: Ie
+	}, Ve(g)) : null, S("Filter", "filterType", n), g.filterType === 0 ? null : b("Strength", "filterStrength", 0, 100))), H(c, {
 		key: "mix",
 		title: "Mix",
-		right: T
-	}, U(u, { gap: 1 }, ...r.map((e, t) => b(e, t)))), U(c, {
+		right: ee
+	}, H(u, { gap: 1 }, ...r.map((e, t) => x(e, t)))), H(c, {
 		key: "keep",
 		title: "Selective colour"
-	}, U(u, { gap: 1 }, y("Hue", "keepHue", 0, 360, X), y("Range", "keepRange", 5, 90), y("Amount", "keepAmount", 0, 100))), U(c, {
+	}, H(u, { gap: 1 }, b("Hue", "keepHue", 0, 360, X), b("Range", "keepRange", 5, 90), b("Amount", "keepAmount", 0, 100))), H(c, {
 		key: "toning",
 		title: "Toning"
-	}, U(u, { gap: 4 }, x("Toner", "toner", s), g.toner === 0 ? null : y("Strength", "tonerStrength", 0, 100), y("Highlights hue", "hiHue", 0, 360, X), y("Highlights saturation", "hiSat", 0, 100), y("Shadows hue", "shHue", 0, 360, X), y("Shadows saturation", "shSat", 0, 100), y("Balance", "balance", -100, 100), y("Paper hue", "paperHue", 0, 360, X), y("Paper saturation", "paperSat", 0, 100))));
+	}, H(u, { gap: 4 }, S("Toner", "toner", s), g.toner === 0 ? null : b("Strength", "tonerStrength", 0, 100), b("Highlights hue", "hiHue", 0, 360, X), b("Highlights saturation", "hiSat", 0, 100), b("Shadows hue", "shHue", 0, 360, X), b("Shadows saturation", "shSat", 0, 100), b("Balance", "balance", -100, 100), b("Paper hue", "paperHue", 0, 360, X), b("Paper saturation", "paperSat", 0, 100))));
 }
 //#endregion
 //#region src/glsl.ts
-var Z = (e) => e.map(d).join(", "), Ue = "float bwHue(vec3 e) {\n  float mx = max(e.r, max(e.g, e.b));\n  float d = mx - min(e.r, min(e.g, e.b));\n  if (d < 1e-6) return 0.0;\n  float h;\n  if (e.r >= e.g && e.r >= e.b) h = mod((e.g - e.b) / d, 6.0);\n  else if (e.g >= e.b) h = (e.b - e.r) / d + 2.0;\n  else h = (e.r - e.g) / d + 4.0;\n  return h * 60.0;\n}", We = "vec2 bwHueChroma(vec3 rgb) {\n  float m = max(rgb.r, max(rgb.g, rgb.b));\n  if (m <= 1e-6) return vec2(0.0);\n  vec3 e = linearToSrgb(max(rgb, vec3(0.0)) / m);\n  float sat = 1.0 - min(e.r, min(e.g, e.b));\n  return vec2(bwHue(e), smoothstep(0.0, 0.5, sat));\n}", Ge = "float bwBandWeight(float hue, float centre, float dPrev, float dNext) {\n  float d = mod(hue - centre + 540.0, 360.0) - 180.0;\n  float t;\n  if (d <= 0.0) {\n    if (d <= -dPrev) return 0.0;\n    t = (d + dPrev) / dPrev;\n  } else {\n    if (d >= dNext) return 0.0;\n    t = 1.0 - d / dNext;\n  }\n  return t * t * (3.0 - 2.0 * t);\n}", Ke = `float bwMixAmount(float hue, vec4 lo, vec4 hi) {
+var Z = (e) => e.map(d).join(", "), We = "float bwHue(vec3 e) {\n  float mx = max(e.r, max(e.g, e.b));\n  float d = mx - min(e.r, min(e.g, e.b));\n  if (d < 1e-6) return 0.0;\n  float h;\n  if (e.r >= e.g && e.r >= e.b) h = mod((e.g - e.b) / d, 6.0);\n  else if (e.g >= e.b) h = (e.b - e.r) / d + 2.0;\n  else h = (e.r - e.g) / d + 4.0;\n  return h * 60.0;\n}", Ge = "vec2 bwHueChroma(vec3 rgb) {\n  float m = max(rgb.r, max(rgb.g, rgb.b));\n  if (m <= 1e-6) return vec2(0.0);\n  vec3 e = linearToSrgb(max(rgb, vec3(0.0)) / m);\n  float sat = 1.0 - min(e.r, min(e.g, e.b));\n  return vec2(bwHue(e), smoothstep(0.0, 0.5, sat));\n}", Ke = "float bwBandWeight(float hue, float centre, float dPrev, float dNext) {\n  float d = mod(hue - centre + 540.0, 360.0) - 180.0;\n  float t;\n  if (d <= 0.0) {\n    if (d <= -dPrev) return 0.0;\n    t = (d + dPrev) / dPrev;\n  } else {\n    if (d >= dNext) return 0.0;\n    t = 1.0 - d / dNext;\n  }\n  return t * t * (3.0 - 2.0 * t);\n}", qe = `float bwMixAmount(float hue, vec4 lo, vec4 hi) {
   const float CENTRE[8] = float[8](${Z(i)});
   const float PREV[8] = float[8](${Z(a)});
   const float NEXT[8] = float[8](${Z(o)});
@@ -820,34 +825,34 @@ var Z = (e) => e.map(d).join(", "), Ue = "float bwHue(vec3 e) {\n  float mx = ma
     a += (amount / 100.0) * bwBandWeight(hue, CENTRE[i], PREV[i], NEXT[i]);
   }
   return a;
-}`, qe = "float bwHueWindow(float hue, float centre, float halfWidth) {\n  float d = abs(mod(hue - centre + 540.0, 360.0) - 180.0);\n  if (d >= halfWidth) return 0.0;\n  float t = 1.0 - d / halfWidth;\n  return t * t * (3.0 - 2.0 * t);\n}";
-function Je() {
+}`, Je = "float bwHueWindow(float hue, float centre, float halfWidth) {\n  float d = abs(mod(hue - centre + 540.0, 360.0) - 180.0);\n  if (d >= halfWidth) return 0.0;\n  float t = 1.0 - d / halfWidth;\n  return t * t * (3.0 - 2.0 * t);\n}";
+function Ye() {
 	return `vec3 bwResponse(int id, vec3 custom) {
 ${t.flatMap((e, t) => e.weights ? [`  if (id == ${t}) return ${f(e.weights)};`] : []).join("\n")}
   if (id == 6) return custom;
   return ${f(e)};
 }`;
 }
-function Ye() {
+function Xe() {
 	return `vec3 bwFilter(int id) {
 ${n.slice(1).map((e, t) => `  if (id == ${t + 1}) return ${f(e.transmission)};`).join("\n")}
   return vec3(1.0);
 }`;
 }
-var Xe = `vec3 bwWeights(int responseId, vec3 custom, int filterId, float strength) {
+var Ze = `vec3 bwWeights(int responseId, vec3 custom, int filterId, float strength) {
   float s = clamp(strength / 100.0, 0.0, 1.0);
   vec3 v = bwResponse(responseId, custom) * (vec3(1.0) + (bwFilter(filterId) - vec3(1.0)) * s);
   return v / max(v.r + v.g + v.b, ${d(u)});
-}`, Ze = [
-	Ue,
+}`, Qe = [
 	We,
 	Ge,
 	Ke,
 	qe,
-	Je(),
+	Je,
 	Ye(),
-	Xe
-].join("\n\n"), Qe = `if (on > 0.5) {
+	Xe(),
+	Ze
+].join("\n\n"), $e = `if (on > 0.5) {
   vec3 bwW = bwWeights(response, vec3(mixR, mixG, mixB) / 100.0, filterType, filterStrength);
   vec2 bwHc = bwHueChroma(lin);
   float bwY = max(dot(bwW, lin), 0.0);
@@ -856,8 +861,8 @@ var Xe = `vec3 bwWeights(int responseId, vec3 custom, int filterId, float streng
   float bwL = luma(lin);
   vec3 bwColoured = bwL > 1e-6 ? lin * (bwY / bwL) : vec3(bwY);
   lin = vec3(bwY) * (1.0 - bwKeep) + bwColoured * bwKeep;
-}`, $e = "vec3 bwHueRgb(float hue) {\n  return clamp(abs(mod(hue / 60.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);\n}", et = "vec3 bwTintDir(float hue) {\n  vec3 h = bwHueRgb(hue);\n  vec3 d = h - vec3(luma(h));\n  return d / max(abs(d.r), max(abs(d.g), abs(d.b)));\n}";
-function tt() {
+}`, et = "vec3 bwHueRgb(float hue) {\n  return clamp(abs(mod(hue / 60.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);\n}", tt = "vec3 bwTintDir(float hue) {\n  vec3 h = bwHueRgb(hue);\n  vec3 d = h - vec3(luma(h));\n  return d / max(abs(d.r), max(abs(d.g), abs(d.b)));\n}";
+function nt() {
 	return `vec2 bwTonerNode(int id, int k) {
 ${s.slice(1).map((e, t) => {
 		let [n, r, i, a] = e.nodes.map(([e, t]) => `vec2(${d(e)}, ${d(t)})`);
@@ -866,7 +871,7 @@ ${s.slice(1).map((e, t) => {
   return vec2(0.0);
 }`;
 }
-var nt = `vec3 bwRecipeTint(int id, float lum) {
+var rt = `vec3 bwRecipeTint(int id, float lum) {
   float x = clamp(lum, 0.0, 1.0) * 3.0;
   int k = int(min(floor(x), 2.0));
   float f = x - float(k);
@@ -875,13 +880,13 @@ var nt = `vec3 bwRecipeTint(int id, float lum) {
   vec3 ta = bwTintDir(a.x) * (a.y * ${d(c)});
   vec3 tb = bwTintDir(b.x) * (b.y * ${d(c)});
   return ta * (1.0 - f) + tb * f;
-}`, rt = [
-	$e,
+}`, it = [
 	et,
-	tt(),
-	nt,
+	tt,
+	nt(),
+	rt,
 	"float bwGamutAlpha(vec3 base, vec3 tint) {\n  float a = 1.0;\n  for (int i = 0; i < 3; i++) {\n    if (tint[i] > 0.0) a = min(a, (1.0 - base[i]) / tint[i]);\n    else if (tint[i] < 0.0) a = min(a, base[i] / -tint[i]);\n  }\n  return max(a, 0.0);\n}"
-].join("\n\n"), it = `if (on > 0.5) {
+].join("\n\n"), at = `if (on > 0.5 && (${ee.map((e) => `${e.key} != ${e.type === "int" ? "0" : d(0)}`).join(" || ")})) {
   c = clamp(c, 0.0, 1.0);
   float bwL = luma(c);
   float bwPivot = 0.5 + (0.4 * balance) / 100.0;
@@ -898,8 +903,8 @@ var nt = `vec3 bwRecipeTint(int id, float lum) {
 }`;
 //#endregion
 //#region src/stages.ts
-function at(e) {
-	return pe.filter((t) => t.stage === e).map((e) => ({
+function ot(e) {
+	return te.filter((t) => t.stage === e).map((e) => ({
 		key: e.key,
 		glslType: e.type,
 		default: e.def,
@@ -911,38 +916,38 @@ function at(e) {
 		label: e.label
 	}));
 }
-function ot() {
+function st() {
 	return {
-		id: se,
+		id: m,
 		name: "Black & White",
 		phase: "scene-linear",
 		priority: 900,
-		glsl: Qe,
-		helpers: Ze,
-		uniforms: at("convert"),
+		glsl: $e,
+		helpers: Qe,
+		uniforms: ot("convert"),
 		presetScope: "global"
 	};
 }
-function st() {
+function ct() {
 	return {
-		id: ce,
+		id: h,
 		name: "Black & White toning",
 		phase: "display-adjust",
 		priority: 100,
-		glsl: it,
-		helpers: rt,
-		uniforms: at("tone"),
+		glsl: at,
+		helpers: it,
+		uniforms: ot("tone"),
 		presetScope: "global",
 		space: { encoding: "perceptual" }
 	};
 }
-function ct() {
-	return [ot(), st()];
+function lt() {
+	return [st(), ct()];
 }
 //#endregion
 //#region src/target.ts
-var lt = .5;
-function ut(e, t, n, r, i) {
+var ut = .5;
+function dt(e, t, n, r, i) {
 	if (!i || n.width <= 0 || n.height <= 0 || i.w <= 0 || i.h <= 0) return null;
 	let a = r / n.width, o = ((e - n.left) * a - i.x) / i.w, s = ((t - n.top) * a - i.y) / i.h;
 	return o < 0 || o > 1 || s < 0 || s > 1 ? null : {
@@ -950,34 +955,34 @@ function ut(e, t, n, r, i) {
 		y: s
 	};
 }
-function dt(e, t) {
+function ft(e, t) {
 	if (!e || !t) return null;
-	let n = w(e, t.x, t.y);
-	return n ? y(n) : null;
+	let n = pe(e, t.x, t.y);
+	return n ? le(n) : null;
 }
-function ft(e, t, n) {
-	return t.chroma < .05 ? [...e] : e.map((e, r) => Math.max(-100, Math.min(100, e - n * lt * b(t.hue, r) * t.chroma)));
+function pt(e, t, n) {
+	return t.chroma < .05 ? [...e] : e.map((e, r) => Math.max(-100, Math.min(100, e - n * ut * ue(t.hue, r) * t.chroma)));
 }
-var pt = "Black & White target";
+var mt = "Black & White target";
 function Q(e, t) {
 	let n = e.current;
-	n && (e.current = null, n.moved && t(pt));
+	n && (e.current = null, n.moved && t(mt));
 }
-function mt(e, t, n, r) {
+function ht(e, t, n, r) {
 	let i = e.current;
-	return i ? t === 0 ? (Q(e, r.commit), !0) : n === null || (i.moved = !0, r.write(ft(i.start, i.at, n - i.y)), !0) : !1;
+	return i ? t === 0 ? (Q(e, r.commit), !0) : n === null || (i.moved = !0, r.write(pt(i.start, i.at, n - i.y)), !0) : !1;
 }
-function ht(e) {
-	return JSON.stringify(Object.keys(e).filter((e) => !e.startsWith(`${E}.`)).sort().map((t) => [t, e[t]]));
+function gt(e) {
+	return JSON.stringify(Object.keys(e).filter((e) => !e.startsWith(`${p}.`)).sort().map((t) => [t, e[t]]));
 }
-function gt() {
-	let { useEffect: e, useRef: t, useState: n } = H().react, r = H().stores.useDevelopStore, i = r((e) => e.photoId), a = r((e) => e.params), o = r((e) => e.paramBag), s = Y()((e) => e.target), c = H().develop.useDevelopOverlay(), l = t(null), u = t(null), [d, f] = n(!1), [p, m] = n(!1), h = B(o), g = ht(o), _ = (e) => void r.getState().commitEdit(e);
+function _t() {
+	let { useEffect: e, useRef: t, useState: n } = V().react, r = V().stores.useDevelopStore, i = r((e) => e.photoId), a = r((e) => e.params), o = r((e) => e.paramBag), s = Y()((e) => e.target), c = V().develop.useDevelopOverlay(), l = t(null), u = t(null), [d, f] = n(!1), [p, m] = n(!1), h = F(o), g = gt(o), _ = (e) => void r.getState().commitEdit(e);
 	if (e(() => {
 		s && !h && Y().getState().setTarget(!1);
 	}, [s, h]), e(() => () => Y().getState().setTarget(!1), []), e(() => {
 		if (!s) return;
 		let e = !1, t = window.setTimeout(() => {
-			Se(256).then((t) => {
+			we(256).then((t) => {
 				e || Y().getState().setFrame(t && i ? {
 					photoId: i,
 					sample: t
@@ -1013,19 +1018,19 @@ function gt() {
 			window.removeEventListener("keydown", n), window.removeEventListener("keyup", r), window.removeEventListener("blur", i), f(!1);
 		};
 	}, [s]), !s) return null;
-	let v = () => Me(Y().getState().frame, r.getState().photoId), y = (e, t) => {
+	let v = () => Ne(Y().getState().frame, r.getState().photoId), y = (e, t) => {
 		let n = l.current;
 		if (!n) return null;
 		let r = n.getBoundingClientRect(), i = r.width > 0 ? n.clientWidth / r.width : 1, a = c.imageRect ?? c.rect;
 		return {
 			y: (t - r.top) * i,
-			uv: ut(e, t, r, n.clientWidth, a)
+			uv: dt(e, t, r, n.clientWidth, a)
 		};
 	}, b = (e) => {
 		if (e.button !== 0) return;
-		let t = y(e.clientX, e.clientY), n = t ? dt(v(), t.uv) : null;
+		let t = y(e.clientX, e.clientY), n = t ? ft(v(), t.uv) : null;
 		!t || !n || n.chroma < .05 || (e.preventDefault(), e.currentTarget.setPointerCapture(e.pointerId), u.current = {
-			start: [...L(r.getState().paramBag).bands],
+			start: [...A(r.getState().paramBag).bands],
 			at: n,
 			y: t.y,
 			pointerId: e.pointerId,
@@ -1033,23 +1038,23 @@ function gt() {
 		});
 	}, x = (e) => {
 		let t = y(e.clientX, e.clientY);
-		if (mt(u, e.buttons, t ? t.y : null, {
-			write: (e) => r.getState().setDynParams(z({ bands: e })),
+		if (ht(u, e.buttons, t ? t.y : null, {
+			write: (e) => r.getState().setDynParams(N({ bands: e })),
 			commit: _
 		})) return;
-		let n = t ? dt(v(), t.uv) : null;
+		let n = t ? ft(v(), t.uv) : null;
 		m(n !== null && n.chroma < .05);
 	}, S = (e) => {
 		let t = u.current;
 		t && (e.currentTarget.hasPointerCapture(t.pointerId) && e.currentTarget.releasePointerCapture(t.pointerId), Q(u, _));
 	};
-	return U("div", {
+	return H("div", {
 		ref: l,
 		style: {
 			position: "absolute",
 			inset: 0,
 			pointerEvents: d ? "none" : "auto",
-			cursor: H().cursors.resolve(p ? "not-allowed" : "pick")
+			cursor: V().cursors.resolve(p ? "not-allowed" : "pick")
 		},
 		onPointerDown: b,
 		onPointerMove: x,
@@ -1060,59 +1065,59 @@ function gt() {
 //#endregion
 //#region src/index.ts
 var $ = null;
-function _t() {
-	let e = H().stores.useDevelopStore.getState();
-	e.setDynParams(ge()), e.commitEdit("Black & White reset");
+function vt() {
+	let e = V().stores.useDevelopStore.getState();
+	e.setDynParams(ne()), e.commitEdit("Black & White reset");
 }
-function vt(e) {
-	ve(e), Ne();
-	for (let t of ct()) e.registerProcessingStage(t);
+function yt(e) {
+	be(e), Pe();
+	for (let t of lt()) e.registerProcessingStage(t);
 	e.registerPanel({
-		id: le,
+		id: g,
 		title: "Black & White",
-		component: He,
+		component: Ue,
 		defaultDock: {
 			module: "develop",
 			direction: "right",
 			order: 12,
 			width: 280
 		},
-		onReset: _t
+		onReset: vt
 	}), e.registerSlot({
-		id: ue,
+		id: _,
 		slot: "develop-canvas-overlay",
-		component: gt,
+		component: _t,
 		order: 60
 	}), e.registerKeybinding({
-		id: de,
+		id: v,
 		label: "Toggle Black & White",
 		category: "Develop",
 		defaultCombo: "V",
-		handler: () => Ee()
+		handler: () => Oe()
 	}), e.registerGridMenuItem({
-		id: `${E}.to-bw`,
-		label: ke("Convert to Black & White"),
-		onClick: (e) => void Oe(e, !0, De())
+		id: `${p}.to-bw`,
+		label: q("Convert to Black & White"),
+		onClick: (e) => void Ae(e, !0, ke())
 	}), e.registerGridMenuItem({
-		id: `${E}.to-colour`,
-		label: ke("Convert to Colour"),
-		onClick: (e) => void Oe(e, !1, De())
+		id: `${p}.to-colour`,
+		label: q("Convert to Colour"),
+		onClick: (e) => void Ae(e, !1, ke())
 	}), $ = e.stores.useDevelopStore.subscribe((e, t) => {
 		if (e.paramBag === t.paramBag) return;
-		let n = _e(e.paramBag);
+		let n = re(e.paramBag);
 		n && e.setDynParams(n);
 	});
 }
-function yt() {
+function bt() {
 	$?.(), $ = null;
 	try {
 		Y().getState().setTarget(!1);
-		let e = H();
-		for (let t of ct()) e.unregisterProcessingStage(t.id);
-		e.unregisterSlot(ue);
+		let e = V();
+		for (let t of lt()) e.unregisterProcessingStage(t.id);
+		e.unregisterSlot(_);
 	} catch {}
 }
 //#endregion
-export { vt as activate, yt as deactivate };
+export { yt as activate, bt as deactivate };
 
 //# sourceMappingURL=index.js.map

@@ -16,6 +16,7 @@ import {
   TONERS,
   WEIGHT_SUM_FLOOR,
 } from "./tables";
+import { TONING_KEYS } from "./params";
 
 export type RGB = [number, number, number];
 
@@ -231,10 +232,17 @@ export function paperColour(hue: number, sat: number): RGB {
   return [1 - k * (1 - h[0]), 1 - k * (1 - h[1]), 1 - k * (1 - h[2])];
 }
 
-/** The tone stage on one display pixel, treatment on. The input is clamped to
- *  [0, 1]³ first, as the shader does: the host hands a stage that declares a
- *  space the unclipped display colour. */
+/** Whether a toner, split-tone colour or paper tint is set: the tone block's gate. */
+export function toningActive(p: ToneParams): boolean {
+  return TONING_KEYS.some((k) => p[k] !== 0);
+}
+
+/** The tone stage on one display pixel, treatment on. With no toning set it
+ *  hands the pixel on untouched. Otherwise the input is clamped to [0, 1]³
+ *  first, as the shader does: the host hands a stage that declares a space the
+ *  unclipped display colour. */
 export function tone(input: readonly number[], p: ToneParams): RGB {
+  if (!toningActive(p)) return [input[0], input[1], input[2]];
   const c: RGB = [clamp01(input[0]), clamp01(input[1]), clamp01(input[2])];
   const l = luma(c);
   const r = recipeTint(p.toner, l);

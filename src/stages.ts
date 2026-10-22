@@ -45,7 +45,7 @@ export function toneStage(): ProcessingStageContribution {
     // without a space is clipped ahead of its block, outside its `on` gate,
     // which would clip every Colour photo before the core Vignette and Grain.
     // The display's own space converts and clips nothing; the block clips its
-    // input itself, once it is on.
+    // input itself, once it is on and a toner, split tone or paper tint is set.
     space: { encoding: "perceptual" },
   };
 }

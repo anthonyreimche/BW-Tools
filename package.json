@@ -1,7 +1,7 @@
 {
   "name": "safelight-black-and-white",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Black & White extension for Safelight: scene-linear monochrome conversion with film responses, colour filters, an eight-colour mix with Auto and an on-image tool, selective colour and print toning.",
   "type": "module",
   "scripts": {

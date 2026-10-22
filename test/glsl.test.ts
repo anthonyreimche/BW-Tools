@@ -37,9 +37,14 @@ describe("stage GLSL", () => {
 
   // The host clips a display stage's input only if the stage declares no
   // space, and does it outside the stage's gate. The tone stage declares one,
-  // so its own block clips, behind its `on` test.
-  it("clips the display colour to [0, 1] first thing inside the tone block", () => {
-    expect(TONE_GLSL.startsWith("if (on > 0.5) {\n  c = clamp(c, 0.0, 1.0);\n")).toBe(true);
+  // so its own block clips, behind its gate: treatment on and a toner, split
+  // tone or paper tint set. A plain conversion keeps its range.
+  it("clips the display colour to [0, 1] first thing inside the tone block, only while toning is set", () => {
+    expect(
+      TONE_GLSL.startsWith(
+        "if (on > 0.5 && (toner != 0 || hiSat != 0.0 || shSat != 0.0 || paperSat != 0.0)) {\n  c = clamp(c, 0.0, 1.0);\n",
+      ),
+    ).toBe(true);
   });
 
   it("reads no textures", () => {

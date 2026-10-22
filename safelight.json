@@ -1,12 +1,11 @@
 {
   "id": "black-and-white",
   "name": "Black & White",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Monochrome conversion in scene-linear light: film responses, colour filters, an eight-colour mix with Auto and an on-image tool, selective colour, and print toning (toner recipes, split toning, paper tint).",
   "author": "Anthony Reimche",
   "main": "dist/index.js",
   "license": "MIT",
-  "categories": ["Develop", "Color"],
   "keywords": ["black-and-white", "monochrome", "b&w", "grayscale", "toning", "sepia", "split-toning", "channel-mixer", "film"],
   "minAppVersion": "2.5.5"
 }

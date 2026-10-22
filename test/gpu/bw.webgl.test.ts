@@ -222,6 +222,44 @@ describe("Black & White stages on the real renderer", () => {
     expectBitExact(withTone, convertOnly);
   });
 
+  // Treatment on writes both stages' `on` flags, so with no toner, split tone
+  // or paper tint set the tone stage must still hand the conversion on with
+  // its range, greys over white included, to the Vignette and Grain behind it.
+  // A grey is a luminance, which the core shoulder keeps under white, so the
+  // probe transform skips the shoulder. The positive control is a no-space
+  // display stage, which the host clips ahead of.
+  it("leaves an over-range conversion bit-exact on version 2 when no toning is set", () => {
+    const openProbe = { ...LINEAR_PROBE_PIPELINE, id: "test.open-probe", sig: "test.open-probe", skipToneShoulder: true };
+    const over = {
+      ...V2,
+      vignette: { ...DEFAULT_VIGNETTE, amount: 30 },
+      grain: { ...DEFAULT_GRAIN, amount: 100 },
+    };
+    const clipsAhead: ProcessingStageContribution = {
+      id: "test.clips-ahead",
+      name: "Clips ahead",
+      phase: "display-adjust",
+      priority: 100,
+      glsl: "c = c;",
+      uniforms: [],
+    };
+    const frame = (stages: ProcessingStageContribution[]): Frame =>
+      withRenderer({ stages: [...builtinStages(), ...stages], pipeline: openProbe }, (r) => {
+        r.setImage(WIDE_SCENE);
+        r.setParams(identityParams(over));
+        r.setContributedParams(paramsPatch(bw({})));
+        const f = r.captureFloatFrame();
+        if (!f) throw new Error("captureFloatFrame returned null");
+        return f;
+      });
+    const convertOnly = frame([convertStage()]);
+    const clipped = frame([convertStage(), clipsAhead]);
+    let moved = 0;
+    for (let i = 0; i < convertOnly.data.length; i++) if (convertOnly.data[i] !== clipped.data[i]) moved++;
+    expect(moved).toBeGreaterThan(W * H * 0.1);
+    expectBitExact(frame(allStages()), convertOnly);
+  });
+
   for (const [version, over] of [["v1", {}], ["v2", V2]] as const) {
     it(`converts as the TS twin does (${version})`, () => {
       const ons = frames([convertStage()], CONVERSIONS.map(([, p]) => paramsPatch(p)), over);

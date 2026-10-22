@@ -7,6 +7,7 @@ import {
   recipeTint,
   tintDirection,
   tone,
+  toningActive,
   type ToneParams,
 } from "../src/model";
 import { TINT_MAX, TONERS } from "../src/tables";
@@ -82,11 +83,24 @@ describe("tone", () => {
     for (const c of colours(100)) expect(tone(c, OFF)).toEqual(c);
   });
 
-  it("clips its input to [0, 1] first, as the shader does", () => {
+  it("clips its input to [0, 1] first while toning is set, as the shader does", () => {
     const p = { ...OFF, toner: 1, hiSat: 60, shSat: 40, balance: 20, paperSat: 50 };
     expect(tone([1.7, -0.3, 0.4], p)).toEqual(tone([1, 0, 0.4], p));
     expect(tone([-2, 0.5, 3], p)).toEqual(tone([0, 0.5, 1], p));
-    expect(tone([2, 2, 2], { ...OFF })).toEqual([1, 1, 1]);
+    expect(tone([2, 2, 2], { ...OFF, paperSat: 1 })).toEqual(tone([1, 1, 1], { ...OFF, paperSat: 1 }));
+  });
+
+  it("leaves values outside [0, 1] alone with every toning control off", () => {
+    expect(tone([2, 2, 2], OFF)).toEqual([2, 2, 2]);
+    expect(tone([1.7, -0.3, 0.4], OFF)).toEqual([1.7, -0.3, 0.4]);
+  });
+
+  it("counts toning as set once a toner, split tone or paper tint is", () => {
+    expect(toningActive(OFF)).toBe(false);
+    expect(toningActive({ ...OFF, tonerStrength: 0, hiHue: 200, shHue: 10, balance: 50, paperHue: 90 })).toBe(false);
+    for (const set of [{ toner: 3 }, { hiSat: 1 }, { shSat: 1 }, { paperSat: 1 }]) {
+      expect(toningActive({ ...OFF, ...set })).toBe(true);
+    }
   });
 
   it("keeps luma exactly for every toner, split and balance (paper off)", () => {

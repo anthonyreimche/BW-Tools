@@ -71,6 +71,12 @@ const NUMERIC: { readonly [K in NumericKey]: FieldSpec } = {
 const NUMERIC_KEYS = Object.keys(NUMERIC) as NumericKey[];
 const numericFor = (stage: FieldSpec["stage"]) => NUMERIC_KEYS.map((k) => NUMERIC[k]).filter((f) => f.stage === stage);
 
+/** The tone controls that switch toning on: a toner, a split-tone colour or a
+ *  paper tint, each 0 at rest. Until one is set the tone stage hands the
+ *  converted image on untouched, values outside [0, 1] included. */
+export const TONING_KEYS = ["toner", "hiSat", "shSat", "paperSat"] as const satisfies readonly (keyof ToneParams)[];
+export const TONING_FIELDS: readonly FieldSpec[] = TONING_KEYS.map((k) => NUMERIC[k]);
+
 /** Both stages' uniforms, in declaration order. */
 export const FIELDS: readonly FieldSpec[] = [
   ON_CONVERT,

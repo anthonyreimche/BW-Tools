@@ -22,6 +22,7 @@ import {
   glslFloat,
   glslVec3,
 } from "./tables";
+import { TONING_FIELDS } from "./params";
 
 const floats = (v: readonly number[]): string => v.map(glslFloat).join(", ");
 
@@ -156,7 +157,9 @@ const GAMUT = `float bwGamutAlpha(vec3 base, vec3 tint) {
 
 export const TONE_HELPERS = [HUE_RGB, TINT_DIR, tonerFn(), RECIPE, GAMUT].join("\n\n");
 
-export const TONE_GLSL = `if (on > 0.5) {
+const TONING_SET = TONING_FIELDS.map((f) => `${f.key} != ${f.type === "int" ? "0" : glslFloat(0)}`).join(" || ");
+
+export const TONE_GLSL = `if (on > 0.5 && (${TONING_SET})) {
   c = clamp(c, 0.0, 1.0);
   float bwL = luma(c);
   float bwPivot = 0.5 + (0.4 * balance) / 100.0;
