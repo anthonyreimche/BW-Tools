@@ -38,6 +38,14 @@ Colour is untouched.
   *Paper* tint that shows most in the whites. Toning never changes a pixel's
   brightness, except the paper tint, which darkens the whites slightly, as a
   tinted paper does.
+- **In masks**: add Black & White to a mask from the Masking panel's Adjust tab
+  to convert or tone inside that mask only, with its own treatment switch. The
+  mask's Black & White has the same controls as the panel's except Auto and
+  Target, which read the whole photo. It works on the colours that reach it: on
+  a photo in Colour it turns the masked area black and white; on a photo
+  already in Black & White it gets greys, which its conversion leaves grey, so
+  its toning is what shows. It needs the current processing: on a photo edited
+  in an earlier Safelight, use Update processing first.
 
 Everything is stored per photo, undoes and redoes, takes part in presets and
 Copy/Paste, and renders the same in Develop, the Before view and export.
@@ -75,7 +83,7 @@ Copy/Paste, and renders the same in Develop, the Before view and export.
 
 ## Requirements
 
-Safelight 2.5.5 or later.
+Safelight 3.1.0 or later.
 
 ## Licence
 

@@ -2,6 +2,10 @@
 // how to reach it; in Black & White, the conversion, the eight-colour mix
 // (with Auto and the target tool), selective colour and toning. Sliders write
 // the bag live and commit one undo step on release.
+//
+// It edits whatever useParamScope hands it: the photo's bag in the dock, a
+// mask's in the Masking panel's Adjust tab. Auto and the target tool read the
+// whole photo and write the photo's own mix, so they show only in the dock.
 
 import type { CSSProperties, ReactElement } from "react";
 import { LABEL_BW, LABEL_COLOUR, runAuto } from "./actions";
@@ -34,6 +38,9 @@ export function colourHint(combo: string): string {
   return combo ? `Press ${combo} or choose Black & White.` : "Choose Black & White to convert this photo.";
 }
 
+/** A mask's Colour hint: the shortcut toggles the photo, not the mask. */
+export const MASK_COLOUR_HINT = "Choose Black & White to convert inside this mask.";
+
 export function weightsReadout(p: BwParams): string {
   const [r, g, b] = conversionWeights(p);
   return `Normalised: R ${r.toFixed(2)} · G ${g.toFixed(2)} · B ${b.toFixed(2)}`;
@@ -64,15 +71,18 @@ type Choice = "response" | "filterType" | "toner";
 export function BwPanel(): ReactElement {
   const { Slider } = api().components;
   const { Button, Select, SegmentedControl, Section, Row, Stack } = api().ui;
-  const dev = api().stores.useDevelopStore;
-  const paramBag = dev((s) => s.paramBag);
-  const photoId = dev((s) => s.photoId);
+  const scope = api().develop.useParamScope();
+  const inMask = scope.maskId !== null;
+  const photoId = api().stores.useDevelopStore((s) => s.photoId);
   const target = store()((s) => s.target);
   const auto = store()((s) => s.auto);
-  const p = readParams(paramBag);
+  const p = readParams(scope.getParams());
 
-  const write = (patch: Record<string, number>) => dev.getState().setDynParams(patch);
-  const commit = (what: string) => void dev.getState().commitEdit(`Black & White ${what}`);
+  // Drags outrun React's renders, so a change that builds on the current
+  // values starts from the bag the scope holds now, not this render's snapshot.
+  const live = (): BwParams => readParams(scope.getParams());
+  const write = (patch: Record<string, number>) => scope.setParams(patch);
+  const commit = (what: string) => scope.commit(`Black & White ${what}`);
 
   const slider = (label: string, key: NumericKey, min: number, max: number, track?: string) =>
     h(Slider, {
@@ -98,7 +108,7 @@ export function BwPanel(): ReactElement {
       step: 1,
       defaultValue: 0,
       onChange: (v: number) => {
-        const bands = [...readParams(dev.getState().paramBag).bands];
+        const bands = [...live().bands];
         bands[i] = v;
         write(paramsPatch({ bands }));
       },
@@ -126,9 +136,9 @@ export function BwPanel(): ReactElement {
     );
 
   const setTreatment = (on: boolean) => {
-    if (on === readParams(dev.getState().paramBag).on) return;
+    if (on === live().on) return;
     write(treatmentPatch(on));
-    void dev.getState().commitEdit(on ? LABEL_BW : LABEL_COLOUR);
+    scope.commit(on ? LABEL_BW : LABEL_COLOUR);
   };
 
   const treatment = h(SegmentedControl, {
@@ -143,40 +153,38 @@ export function BwPanel(): ReactElement {
   });
 
   if (!p.on) {
-    return h(
-      Stack,
-      { gap: 6, style: PAD },
-      treatment,
-      h("p", { key: "hint", style: HINT }, colourHint(api().keybindings.getBinding(TOGGLE_ACTION))),
-    );
+    const hint = inMask ? MASK_COLOUR_HINT : colourHint(api().keybindings.getBinding(TOGGLE_ACTION));
+    return h(Stack, { gap: 6, style: PAD }, treatment, h("p", { key: "hint", style: HINT }, hint));
   }
 
   const custom = p.response === CUSTOM_RESPONSE;
-  const mixTools = h(
-    Row,
-    { gap: 4 },
-    h(
-      Button,
-      {
-        size: "sm",
-        disabled: !photoId || auto === "busy",
-        title: "Set the eight colours so the photo's colour contrast survives in grey",
-        onClick: () => void pressAuto(),
-      },
-      auto === "failed" ? "Couldn't read the photo" : "Auto",
-    ),
-    h(
-      Button,
-      {
-        size: "sm",
-        active: target,
-        disabled: !photoId,
-        title: "Drag up or down over a colour in the photo to lighten or darken it (Esc ends)",
-        onClick: () => store().getState().setTarget(!target),
-      },
-      "Target",
-    ),
-  );
+  const mixTools = inMask
+    ? null
+    : h(
+        Row,
+        { gap: 4 },
+        h(
+          Button,
+          {
+            size: "sm",
+            disabled: !photoId || auto === "busy",
+            title: "Set the eight colours so the photo's colour contrast survives in grey",
+            onClick: () => void pressAuto(),
+          },
+          auto === "failed" ? "Couldn't read the photo" : "Auto",
+        ),
+        h(
+          Button,
+          {
+            size: "sm",
+            active: target,
+            disabled: !photoId,
+            title: "Drag up or down over a colour in the photo to lighten or darken it (Esc ends)",
+            onClick: () => store().getState().setTarget(!target),
+          },
+          "Target",
+        ),
+      );
 
   return h(
     Stack,

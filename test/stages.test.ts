@@ -26,6 +26,14 @@ describe("stages", () => {
     expect(allStages().map((s) => s.id)).toEqual([CONVERT_ID, TONE_ID]);
   });
 
+  // The phases the host masks in; a stage elsewhere is refused a copy.
+  it("both run again inside masks, from phases the host can mask", () => {
+    for (const s of allStages()) {
+      expect(s.mask).toEqual({ maskable: true });
+      expect(["scene-linear", "tone-map", "display-adjust", "effects", "output-encode"]).toContain(s.phase);
+    }
+  });
+
   it("declare no passes or reads", () => {
     for (const s of allStages()) {
       expect("passes" in s).toBe(false);

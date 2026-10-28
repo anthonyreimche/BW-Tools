@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LABEL_BW } from "../src/actions";
 import { activate, deactivate } from "../src/index";
+import { BwPanel } from "../src/Panel";
 import { CONVERT_ID, DEFAULTS, KEY, OVERLAY_ID, PANEL_ID, TOGGLE_ACTION, TONE_ID, isOn, paramsPatch, readParams } from "../src/params";
 import type {
   CatalogStoreState,
@@ -67,6 +68,17 @@ describe("activate", () => {
     expect(registered.items.map((i) => i.id)).toEqual(["black-and-white.to-bw", "black-and-white.to-colour"]);
     const label = registered.items[0].label;
     expect(typeof label === "function" ? label(["a", "b"]) : label).toBe("Convert to Black & White (2)");
+  });
+
+  // A key left out of `owns` would stay in a mask's bag after the panel is
+  // removed, and keep that stage's copy running.
+  it("offers the panel in masks, owning every key of both stages", () => {
+    const { host, registered } = fakeApi();
+    activate(host);
+    const mask = registered.panels[0].mask;
+    expect(mask?.component).toBe(BwPanel);
+    const keys = registered.stages.flatMap((s) => s.uniforms.map((u) => `${s.id}.${u.key}`));
+    expect([...(mask?.owns ?? [])].sort()).toEqual(keys.sort());
   });
 
   it("toggles the open photo from the shortcut", async () => {

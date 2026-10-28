@@ -1,14 +1,14 @@
 // Black & White — Safelight extension (MIT).
 //
 // Monochrome conversion in scene-linear light and print toning in display
-// space. Registers the two stages (stages.ts), the Develop panel (Panel.ts),
-// the target tool (TargetOverlay.ts), the V shortcut and the Library
-// right-click converts (actions.ts), and keeps the two stages' treatment
-// flags in step.
+// space. Registers the two stages (stages.ts, both maskable), the Develop
+// panel (Panel.ts, which masks can add too), the target tool
+// (TargetOverlay.ts), the V shortcut and the Library right-click converts
+// (actions.ts), and keeps the two stages' treatment flags in step.
 
 import { convertPhotos, liveConvertDeps, menuLabel, toggleTreatment } from "./actions";
 import { BwPanel } from "./Panel";
-import { EXT_ID, OVERLAY_ID, PANEL_ID, TOGGLE_ACTION, repairPatch, resetPatch } from "./params";
+import { EXT_ID, FIELDS, OVERLAY_ID, PANEL_ID, TOGGLE_ACTION, qualified, repairPatch, resetPatch } from "./params";
 import { api, initRuntime } from "./runtime";
 import type { DevelopStoreState, SafelightAPI } from "./safelight";
 import { allStages } from "./stages";
@@ -36,6 +36,9 @@ export function activate(host: SafelightAPI): void {
     // Just below core HSL (order 11), which the mix stands in for in B&W.
     defaultDock: { module: "develop", direction: "right", order: 12, width: 280 },
     onReset: reset,
+    // The same panel edits a mask's conversion and toning in the Masking
+    // panel's Adjust tab. It writes every key of both stages, flags included.
+    mask: { component: BwPanel, owns: FIELDS.map(qualified) },
   });
 
   host.registerSlot({ id: OVERLAY_ID, slot: "develop-canvas-overlay", component: TargetOverlay, order: 60 });

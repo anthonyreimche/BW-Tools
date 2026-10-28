@@ -27,6 +27,10 @@ export function convertStage(): ProcessingStageContribution {
     helpers: CONVERT_HELPERS,
     uniforms: stageUniforms("convert"),
     presetScope: "global",
+    // A mask's copy runs right after this one, on the colours it hands on: on
+    // a photo in Colour it converts inside the mask; on one already in Black &
+    // White it gets greys, which the mix and selective colour can't act on.
+    mask: { maskable: true },
   };
 }
 
@@ -47,6 +51,9 @@ export function toneStage(): ProcessingStageContribution {
     // The display's own space converts and clips nothing; the block clips its
     // input itself, once it is on and a toner, split tone or paper tint is set.
     space: { encoding: "perceptual" },
+    // A mask's copy tones the print inside the mask. Like this stage it hands
+    // its input on untouched until its own treatment and a toning control are set.
+    mask: { maskable: true },
   };
 }
 

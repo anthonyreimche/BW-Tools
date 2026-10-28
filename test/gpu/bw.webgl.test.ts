@@ -8,7 +8,9 @@
 //    process versions (version 2 clips nothing upstream, so a stage that
 //    clipped ahead of its gate would show here), and toning with every
 //    control off leaves the converted image bit-exact;
-//  • the shader matches the TS twin (model.ts) within half-float error.
+//  • the shader matches the TS twin (model.ts) within half-float error;
+//  • a mask's copies of both stages convert and tone inside the mask only,
+//    leaving every pixel outside it as the photo's own stages left it.
 //
 // The probe pipeline hands scene-linear values straight to the framebuffer,
 // but process version 1's tone chain still round-trips them through an 8-bit
@@ -19,7 +21,7 @@
 // so its reference does start from the stages-off capture.
 
 import { describe, expect, it } from "vitest";
-import { CURRENT_PROCESS_VERSION, DEFAULT_GRAIN, DEFAULT_VIGNETTE } from "@/catalog/types";
+import { CURRENT_PROCESS_VERSION, DEFAULT_GRAIN, DEFAULT_VIGNETTE, defaultMaskAdjustments, type Mask } from "@/catalog/types";
 import {
   LINEAR_PROBE_PIPELINE,
   builtinStages,
@@ -31,7 +33,7 @@ import {
   type Frame,
 } from "@/rendering/webgl/webgl.test-support";
 import { convert, tone, type RGB } from "@bw/model";
-import { DEFAULTS, paramsPatch, type BwParams } from "@bw/params";
+import { DEFAULTS, PANEL_ID, paramsPatch, type BwParams } from "@bw/params";
 import { allStages, convertStage } from "@bw/stages";
 import type { ProcessingStageContribution } from "@bw/safelight";
 
@@ -120,13 +122,15 @@ function toHalf(x: number): number {
 const sceneAt = (p: number): RGB => [toHalf(SCENE.data[p * 4]), toHalf(SCENE.data[p * 4 + 1]), toHalf(SCENE.data[p * 4 + 2])];
 const frameAt = (f: Frame) => (p: number): RGB => [f.data[p * 4], f.data[p * 4 + 1], f.data[p * 4 + 2]];
 
-/** `input(p)` is the colour the stage under test receives at pixel p. */
-function score(on: Frame, input: (p: number) => RGB, ref: (px: RGB) => RGB): Score {
+/** `input(p)` is the colour the stage under test receives at pixel p; only the
+ *  pixels `inside` picks (all by default) are compared. */
+function score(on: Frame, input: (p: number) => RGB, ref: (px: RGB) => RGB, inside = (_p: number) => true): Score {
   let worst = 0;
   let change = 0;
   let n = 0;
   let where = "";
   for (let p = 0; p < on.width * on.height; p++) {
+    if (!inside(p)) continue;
     const px = input(p);
     const want = ref(px);
     if (want.some((v) => v < LO || v > HI)) continue;
@@ -163,6 +167,18 @@ const TONINGS: [string, BwParams][] = [
   ["Paper", bw({ paperHue: 40, paperSat: 100 })],
   ["Everything", bw({ toner: 7, hiSat: 30, shSat: 30, paperSat: 50, balance: -40 })],
 ];
+
+// A linear gradient whose step sits at u = 0.5: the right half is covered.
+const RIGHT_HALF: Mask["components"][number] = {
+  id: "right",
+  kind: "linear",
+  mode: "add",
+  invert: false,
+  linear: { x0: 0.5, y0: 0, x1: 0.5001, y1: 0 },
+};
+// Columns either side of the step, clear of the pixel it straddles.
+const LEFT_OF_STEP = (p: number) => p % W < W / 2 - 1;
+const RIGHT_OF_STEP = (p: number) => p % W > W / 2;
 
 describe("Black & White stages on the real renderer", () => {
   it("compile and link for both process versions", () => {
@@ -287,4 +303,62 @@ describe("Black & White stages on the real renderer", () => {
       });
     });
   }
+
+  // Each stage's copy runs right after it with the mask's values, blended by
+  // the mask's coverage. The photo stays in Colour, so the right half is the
+  // mask's conversion toned by the mask's toning and the left half is the
+  // photo as it was. Neither copy alone gives the right half: the conversion
+  // alone leaves it untoned, the toning alone tones the colours.
+  it("convert and tone inside a mask only, through both stages' copies (v2)", () => {
+    const p = bw({
+      response: 1,
+      filterType: 4,
+      bands: [-100, -40, 30, 80, 0, -80, 20, 60],
+      toner: 1,
+      hiSat: 30,
+      shSat: 40,
+      balance: 20,
+    });
+    const mask: Mask = {
+      id: "m",
+      name: "Mask",
+      visible: true,
+      invert: false,
+      opacity: 100,
+      adj: defaultMaskAdjustments(),
+      panels: [PANEL_ID],
+      bag: paramsPatch(p),
+      components: [RIGHT_HALF],
+    };
+    const [off, on] = withRenderer({ stages: [...builtinStages(), ...allStages()], pipeline: LINEAR_PROBE_PIPELINE }, (r) => {
+      r.setImage(SCENE);
+      r.setContributedParams({});
+      return [identityParams(V2), identityParams({ ...V2, masks: [mask] })].map((params) => {
+        r.setParams(params);
+        const f = r.captureFloatFrame();
+        if (!f) throw new Error("captureFloatFrame returned null");
+        return f;
+      });
+    });
+
+    let differing = 0;
+    for (let px = 0; px < W * H; px++) {
+      if (!LEFT_OF_STEP(px)) continue;
+      for (let ch = 0; ch < 4; ch++) if (on.data[px * 4 + ch] !== off.data[px * 4 + ch]) differing++;
+    }
+    expect(differing).toBe(0);
+
+    const s = score(on, frameAt(off), (px) => tone(convert(px, p), p), RIGHT_OF_STEP);
+    const convertOnly = score(on, frameAt(off), (px) => convert(px, p), RIGHT_OF_STEP);
+    const toneOnly = score(on, frameAt(off), (px) => tone(px, p), RIGHT_OF_STEP);
+    console.log(
+      `[bw-gpu] masked: worst ${s.worst.toExponential(2)}, change rms ${s.changeRms.toExponential(2)}, ${s.compared} px; ${s.where}` +
+        `; off by ${convertOnly.worst.toExponential(2)} from the conversion alone, ${toneOnly.worst.toExponential(2)} from the toning alone`,
+    );
+    expect(s.compared).toBeGreaterThan(W * H * 0.15);
+    expect(s.changeRms).toBeGreaterThan(1e-3);
+    expect(s.worst).toBeLessThan(TOLERANCE);
+    expect(convertOnly.worst).toBeGreaterThan(10 * TOLERANCE);
+    expect(toneOnly.worst).toBeGreaterThan(10 * TOLERANCE);
+  });
 });
