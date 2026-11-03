@@ -1,42 +1,17 @@
-// The target tool's maths: where the pointer is in the image, which colour is
-// under it, and how a vertical drag moves the band sliders, spread by the same
-// band weights the shader blends with (core HSL's picker does the same).
+// The target tool, the canvas's pick-drag tool while it is on: which original
+// colour is under the press, and how a vertical drag moves the band sliders,
+// spread by the same band weights the shader blends with (core HSL's picker
+// does the same).
 
 import { patchLinear, type FrameSample } from "./frame";
 import { bandWeight, hueChroma, type HueChroma } from "./model";
-import type { OverlayRect } from "./safelight";
+import type { CanvasPoint, OverlayRect, PickDragTool } from "./safelight";
+import type { Captured } from "./sample";
 
 /** Slider units per layout px, core HSL's default picker sensitivity. */
 export const DRAG_SENSITIVITY = 0.5;
 /** Below this the colour is too grey for the mix to act on. */
 export const MIN_CHROMA = 0.05;
-
-export interface ClientBox {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-/** Client point → image UV through the rect the full image occupies (core's
- *  `imageRect`, which extends past the frame when zoomed; the visible-window
- *  `rect` would give window-relative UVs). `clientWidth / box.width` is the
- *  interface scale (the body zoom), so a zoomed UI still lands on the pixel
- *  under the pointer. Null outside the image. */
-export function pointToUv(
-  clientX: number,
-  clientY: number,
-  box: ClientBox,
-  clientWidth: number,
-  rect: OverlayRect | null,
-): { x: number; y: number } | null {
-  if (!rect || box.width <= 0 || box.height <= 0 || rect.w <= 0 || rect.h <= 0) return null;
-  const scale = clientWidth / box.width;
-  const x = ((clientX - box.left) * scale - rect.x) / rect.w;
-  const y = ((clientY - box.top) * scale - rect.y) / rect.h;
-  if (x < 0 || x > 1 || y < 0 || y > 1) return null;
-  return { x, y };
-}
 
 export function sampleTarget(frame: FrameSample | null, uv: { x: number; y: number } | null): HueChroma | null {
   if (!frame || !uv) return null;
@@ -55,47 +30,91 @@ export function dragBands(start: readonly number[], at: HueChroma, dy: number): 
 
 export const LABEL_TARGET = "Black & White target";
 
-/** A drag in progress: the bands when it began, the colour it grabbed and the
- *  pointer's layout-px y there. */
-export interface Drag {
-  start: number[];
+/** The original colour under a press, and the layout px one canvas px spans,
+ *  which keeps DRAG_SENSITIVITY per layout px at any render resolution. */
+export interface TargetSample {
   at: HueChroma;
-  y: number;
-  pointerId: number;
-  moved: boolean;
+  scale: number;
 }
 
-/** Where the overlay keeps its drag (a React ref). */
-export interface DragSlot {
-  current: Drag | null;
+/** The colour under canvas point `point` in a capture of the live view;
+ *  `rect` is where the canvas shows on screen. Null off the canvas, without a
+ *  capture, or over a colour too grey for the mix to act on. */
+export function readPress(captured: Captured | null, point: CanvasPoint, rect: OverlayRect | null): TargetSample | null {
+  if (!captured || captured.width <= 0 || captured.height <= 0) return null;
+  const at = sampleTarget(captured.sample, { x: point.x / captured.width, y: point.y / captured.height });
+  if (!at || at.chroma < MIN_CHROMA) return null;
+  return { at, scale: rect && rect.h > 0 ? rect.h / captured.height : 1 };
 }
 
-export interface DragIo {
+export interface TargetIo {
+  bands(): number[];
+  sample(point: CanvasPoint): Promise<TargetSample | null>;
   write(bands: number[]): void;
   commit(label: string): void;
 }
 
-/** Ends the held drag, committing the bands it moved as one undo step. Also the
- *  way out when the tool is turned off mid-drag: no pointer-up arrives then. */
-export function settleDrag(slot: DragSlot, commit: (label: string) => void): void {
-  const d = slot.current;
-  if (!d) return;
-  slot.current = null;
-  if (d.moved) commit(LABEL_TARGET);
+/** A press: the bands when it began, its canvas y, the colour once it has been
+ *  read, and the latest y. */
+interface Press {
+  start: number[];
+  y: number;
+  read: TargetSample | null;
+  last: number | null;
+  moved: boolean;
+  released: boolean;
 }
 
-/** Carries a pointer move into the held drag; false when none is held. A move
- *  with no button down means the pointer-up was lost, so the drag ends there
- *  instead of following a hover. `y` is null when the pointer can't be placed. */
-export function moveDrag(slot: DragSlot, buttons: number, y: number | null, io: DragIo): boolean {
-  const d = slot.current;
-  if (!d) return false;
-  if (buttons === 0) {
-    settleDrag(slot, io.commit);
-    return true;
-  }
-  if (y === null) return true;
-  d.moved = true;
-  io.write(dragBands(d.start, d.at, y - d.y));
-  return true;
+/** The pick-drag tool. The original colour is read after the press, so a drag
+ *  waits for it: moves made meanwhile land when it does, and a release made
+ *  meanwhile commits then. `end` releases a press the tool is put down during,
+ *  where no `onUp` arrives. */
+export function targetTool(io: TargetIo): PickDragTool & { end(): void } {
+  let press: Press | null = null;
+  /** The newest press, released or not: a read that lands after a later
+   *  press began would drag from stale bands over that press's. */
+  let latest: Press | null = null;
+
+  const apply = (p: Press) => {
+    if (!p.read || p.last === null) return;
+    p.moved = true;
+    io.write(dragBands(p.start, p.read.at, (p.last - p.y) * p.read.scale));
+  };
+  const settle = (p: Press) => {
+    if (p.moved) io.commit(LABEL_TARGET);
+  };
+  const release = () => {
+    const p = press;
+    if (!p) return;
+    press = null;
+    p.released = true;
+    if (p.read) settle(p);
+  };
+
+  return {
+    onDown(_shown, point) {
+      const p: Press = { start: io.bands(), y: point.y, read: null, last: null, moved: false, released: false };
+      press = p;
+      latest = p;
+      io.sample(point)
+        .catch(() => null)
+        .then((read) => {
+          if (latest !== p) return;
+          if (!read) {
+            if (press === p) press = null;
+            return;
+          }
+          p.read = read;
+          apply(p);
+          if (p.released) settle(p);
+        });
+    },
+    onMove(point) {
+      if (!press) return;
+      press.last = point.y;
+      apply(press);
+    },
+    onUp: release,
+    end: release,
+  };
 }

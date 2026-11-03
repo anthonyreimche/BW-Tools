@@ -43,7 +43,7 @@ export const MASK_COLOUR_HINT = "Choose Black & White to convert inside this mas
 
 export function weightsReadout(p: BwParams): string {
   const [r, g, b] = conversionWeights(p);
-  return `Normalised: R ${r.toFixed(2)} · G ${g.toFixed(2)} · B ${b.toFixed(2)}`;
+  return `Normalized: R ${r.toFixed(2)} · G ${g.toFixed(2)} · B ${b.toFixed(2)}`;
 }
 
 /** Runs Auto and keeps the session's status in step. A run that throws (a

@@ -13,9 +13,10 @@ import { api, initRuntime } from "./runtime";
 import type { DevelopStoreState, SafelightAPI } from "./safelight";
 import { allStages } from "./stages";
 import { initStore, store } from "./store";
-import { TargetOverlay } from "./TargetOverlay";
+import { TargetOverlay, holdTarget } from "./TargetOverlay";
 
 let unsubscribe: (() => void) | null = null;
+let releaseTarget: (() => void) | null = null;
 
 function reset(): void {
   const dev = api().stores.useDevelopStore.getState();
@@ -42,6 +43,7 @@ export function activate(host: SafelightAPI): void {
   });
 
   host.registerSlot({ id: OVERLAY_ID, slot: "develop-canvas-overlay", component: TargetOverlay, order: 60 });
+  releaseTarget = holdTarget();
 
   host.registerKeybinding({
     id: TOGGLE_ACTION,
@@ -78,6 +80,8 @@ export function deactivate(): void {
   // dropping them explicitly keeps a re-enable clean.
   try {
     store().getState().setTarget(false);
+    releaseTarget?.();
+    releaseTarget = null;
     const host = api();
     for (const stage of allStages()) host.unregisterProcessingStage(stage.id);
     host.unregisterSlot(OVERLAY_ID);

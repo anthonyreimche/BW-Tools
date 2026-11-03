@@ -5,7 +5,7 @@ monochrome. Press **V** in Develop (or pick **Black & White** in the panel, or
 right-click photos in the Library) and the photo turns black and white. The
 conversion works on linear light, like a filter in front of film: a neutral
 grey keeps its exact value, the result doesn't change character with exposure,
-and every Safelight tool after it (Contrast, Tone Curve, Clarity, Color
+and every Safelight tool after it (Contrast, Tone Curve, Clarity, Colour
 Grading, Grain, Vignette, masks) works on the monochrome image. A photo left in
 Colour is untouched.
 
@@ -64,7 +64,7 @@ Copy/Paste, and renders the same in Develop, the Before view and export.
 ## The maths
 
 - **Conversion**: `Y = max(dot(w, rgb), 0)` on scene-linear Rec.709, where `w`
-  is response × filter, normalised so the weights sum to 1 (grey in, same grey
+  is response × filter, normalized so the weights sum to 1 (grey in, same grey
   out). A combination whose weights sum below 0.05 is held at that floor, so
   greys come out darker, as they would on film. At full filter strength that
   happens with Deep red on Orthochromatic, Red or Deep red on Blue-sensitive,

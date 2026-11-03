@@ -8,7 +8,7 @@ export type Vec3 = readonly [number, number, number];
 
 export interface ResponseDef {
   label: string;
-  /** Linear Rec.709 weights before normalisation; null = the Custom sliders. */
+  /** Linear Rec.709 weights before normalization; null = the Custom sliders. */
   weights: Vec3 | null;
 }
 

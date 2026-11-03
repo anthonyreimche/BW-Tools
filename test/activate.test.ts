@@ -8,6 +8,7 @@ import type {
   GridMenuItemContribution,
   KeyActionContribution,
   PanelContribution,
+  PickDragTool,
   ProcessingStageContribution,
   SafelightAPI,
   SlotContribution,
@@ -25,6 +26,7 @@ function fakeApi() {
     items: [] as GridMenuItemContribution[],
     unregisteredStages: [] as string[],
     unregisteredSlots: [] as string[],
+    picks: [] as (PickDragTool | null)[],
   };
   const dev = fakeDevelop(new Map([["p", {}]]));
   const ui = fakeStore<UIStoreState>({ activeModule: "develop" });
@@ -40,6 +42,7 @@ function fakeApi() {
     registerKeybinding: (c: KeyActionContribution) => void registered.keys.push(c),
     registerGridMenuItem: (c: GridMenuItemContribution) => void registered.items.push(c),
     stores: { create: fakeStore, useDevelopStore: dev.store, useUIStore: ui, useCatalogStore: catalog },
+    develop: { setPickDrag: (tool: PickDragTool | null) => void registered.picks.push(tool) },
   } as unknown as SafelightAPI;
   return { host, registered, dev, ui };
 }
@@ -127,6 +130,7 @@ describe("activate", () => {
     store().getState().setTarget(true);
     deactivate();
     expect(store().getState().target).toBe(false);
+    expect(registered.picks[registered.picks.length - 1]).toBeNull();
     expect(registered.unregisteredStages).toEqual([CONVERT_ID, TONE_ID]);
     expect(registered.unregisteredSlots).toEqual([OVERLAY_ID]);
     dev.store.setState({ paramBag: { [KEY.convertOn]: 1 } });

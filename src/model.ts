@@ -76,7 +76,7 @@ export function hueOf(e: readonly number[]): number {
 export interface HueChroma {
   /** Degrees, [0, 360). */
   hue: number;
-  /** HSV saturation of the normalised colour. */
+  /** HSV saturation of the normalized colour. */
   sat: number;
   /** How much a band slider may act on this colour, 0…1. */
   chroma: number;
@@ -116,7 +116,7 @@ export function hueWindow(hue: number, centre: number, halfWidth: number): numbe
   return t * t * (3 - 2 * t);
 }
 
-/** Response × filter, normalised so the weights sum to 1 (grey stays grey). */
+/** Response × filter, normalized so the weights sum to 1 (grey stays grey). */
 export function conversionWeights(
   p: Pick<ConvertParams, "response" | "filterType" | "filterStrength" | "mixR" | "mixG" | "mixB">,
 ): RGB {

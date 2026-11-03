@@ -6,7 +6,6 @@ import { initRuntime } from "../src/runtime";
 import type { SafelightAPI } from "../src/safelight";
 import { initStore, store, type AutoStatus } from "../src/store";
 import { BAND_LABELS } from "../src/tables";
-import { foreignSignature } from "../src/TargetOverlay";
 import { elements, fakePanelApi, fakeStore, type FakeElement, type MaskStore, type PanelRig } from "./support/fake-api";
 
 describe("panel text", () => {
@@ -16,22 +15,10 @@ describe("panel text", () => {
     expect(colourHint("")).toBe("Choose Black & White to convert this photo.");
   });
 
-  it("shows the Custom response's normalised weights", () => {
+  it("shows the Custom response's normalized weights", () => {
     expect(weightsReadout({ ...DEFAULTS, response: 6, mixR: 100, mixG: 60, mixB: 40 })).toBe(
-      "Normalised: R 0.50 · G 0.30 · B 0.20",
+      "Normalized: R 0.50 · G 0.30 · B 0.20",
     );
-  });
-});
-
-describe("foreignSignature", () => {
-  it("ignores this extension's keys and key order", () => {
-    expect(foreignSignature({ "black-and-white.convert.band0": 5, "x.stage.a": 1, "y.stage.b": 2 })).toBe(
-      foreignSignature({ "y.stage.b": 2, "black-and-white.tone.toner": 3, "x.stage.a": 1 }),
-    );
-  });
-
-  it("changes when another stage's value changes", () => {
-    expect(foreignSignature({ "x.stage.a": 1 })).not.toBe(foreignSignature({ "x.stage.a": 2 }));
   });
 });
 

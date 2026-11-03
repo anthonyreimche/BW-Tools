@@ -67,6 +67,21 @@ export interface DevelopOverlayState {
   nonce: number;
 }
 
+/** A point on the develop canvas, in its pixels, from its top-left corner. */
+export interface CanvasPoint {
+  x: number;
+  y: number;
+}
+
+/** The canvas's pick-drag tool: a press on the image, then with `onDown` the
+ *  colour the view shows there once the probe answers, then the drag. */
+export interface PickDragTool {
+  onPress?(point: CanvasPoint): void;
+  onDown?(rgb: readonly [number, number, number], point: CanvasPoint): void;
+  onMove?(point: CanvasPoint): void;
+  onUp?(): void;
+}
+
 export type GlslType = "float" | "int" | "bool" | "vec2" | "vec3" | "vec4" | "sampler2D";
 
 export interface UniformDeclaration {
@@ -292,6 +307,14 @@ export interface SafelightAPI {
       params: DevelopParams,
       paramBag?: Record<string, unknown>,
     ): Promise<ImageBitmap | null>;
+    /** A frame of the live view rendered with `params` and `paramBag` merged
+     *  over the photo's, aligned 1:1 with the canvas; sRGB. */
+    captureFrame(params: DevelopParams, options?: { paramBag?: Record<string, unknown> }): Promise<ImageBitmap>;
+    /** Hold the canvas's pick-drag tool, or with null let go of it. Core lets
+     *  go on Escape, and when another extension takes it. */
+    setPickDrag(tool: PickDragTool | null): void;
+    /** React hook: whether this extension holds the pick-drag tool. */
+    usePickDragHeld(): boolean;
     /** The mask's scope inside a mask's Adjust tab, the photo's anywhere else. */
     useParamScope(): ParamScope;
   };
