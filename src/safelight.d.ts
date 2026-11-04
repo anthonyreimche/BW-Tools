@@ -1,6 +1,6 @@
 // The slice of Safelight's extension API this extension touches, mirrored from
 // the app's src/extensions/types.ts, src/extensions/ui-kit.tsx and the
-// develop, catalog and UI stores. Extensions are standalone bundles, so the
+// develop, catalogue and UI stores. Extensions are standalone bundles, so the
 // host's source is not on the type path; React types come from @types/react
 // (dev only).
 
