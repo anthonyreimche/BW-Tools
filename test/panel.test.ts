@@ -84,6 +84,10 @@ const call = (el: FakeElement, handler: string, ...args: unknown[]): unknown => 
 const slider = (tree: FakeElement[], label: string) => find(tree, "Slider", (p) => p.label === label);
 const buttons = (tree: FakeElement[], text: string) =>
   tree.filter((el) => el.type === "Button" && el.children.includes(text));
+const blackAndWhiteTitle = (tree: FakeElement[]): unknown => {
+  const options = find(tree, "SegmentedControl", () => true).props.options as { value: string; title?: string }[];
+  return options.find((o) => o.value === "bw")?.title;
+};
 const texts = (tree: FakeElement[]) => tree.flatMap((el) => el.children.filter((c) => typeof c === "string"));
 
 describe("BwPanel in the dock", () => {
@@ -94,6 +98,24 @@ describe("BwPanel in the dock", () => {
     rig = fakePanelApi(bwBag({ hiSat: 10 }));
     initRuntime(rig.api);
     initStore();
+  });
+
+  it("names the shortcut in the Black & White option's tooltip in Colour, not in panel text", () => {
+    rig = fakePanelApi({});
+    initRuntime(rig.api);
+    initStore();
+    const tree = render();
+    expect(texts(tree).filter((t) => t.includes("Black & White"))).toEqual([]);
+    expect(blackAndWhiteTitle(tree)).toBe("Press V or choose Black & White.");
+  });
+
+  it("shows the Custom response's normalized weights in a tooltip, not in panel text", () => {
+    rig = fakePanelApi(bwBag({ response: 6, mixR: 100, mixG: 60, mixB: 40 }));
+    initRuntime(rig.api);
+    initStore();
+    const tree = render();
+    expect(texts(tree).filter((t) => t.startsWith("Normalized"))).toEqual([]);
+    expect(tree.some((el) => el.props.title === "Normalized: R 0.50 · G 0.30 · B 0.20")).toBe(true);
   });
 
   it("edits the photo's own values", () => {
@@ -172,10 +194,11 @@ describe("BwPanel in a mask", () => {
     expect(rig.maskCommits).toEqual([LABEL_BW]);
   });
 
-  it("says how to convert inside the mask, without the photo's shortcut", () => {
+  it("says how to convert inside the mask in a tooltip, without the photo's shortcut", () => {
     mount(bwBag(), {});
-    const hint = texts(render()).filter((t) => t.includes("Black & White"));
-    expect(hint).toEqual(["Choose Black & White to convert inside this mask."]);
+    const tree = render();
+    expect(texts(tree).filter((t) => t.includes("Black & White"))).toEqual([]);
+    expect(blackAndWhiteTitle(tree)).toBe("Choose Black & White to convert inside this mask.");
   });
 
   it("leaves out Auto and the target tool, so nothing in it reads the photo or arms a canvas tool", () => {
@@ -188,6 +211,77 @@ describe("BwPanel in a mask", () => {
     expect(store().getState().target).toBe(false);
     expect(rig.renders).toEqual([]);
     expect(rig.develop.store.getState().paramBag).toEqual(photo);
+    expect(rig.develop.commits).toEqual([]);
+  });
+});
+
+describe("colour fields", () => {
+  let rig: PanelRig;
+  const render = () => elements(BwPanel());
+  const field = (tree: FakeElement[], label: string) => find(tree, "ColourField", (p) => p.label === label);
+  const off = { [KEY.convertOn]: 0, [KEY.toneOn]: 0 };
+
+  beforeEach(() => {
+    rig = fakePanelApi(bwBag({ keepHue: 120, hiHue: 30, hiSat: 20, shHue: 200, shSat: 35, paperHue: 50, paperSat: 5 }));
+    initRuntime(rig.api);
+    initStore();
+  });
+
+  it("offers a hue-only Colour field for selective colour, showing the kept hue", () => {
+    const f = field(render(), "Colour");
+    expect(f.props.hue).toBe(120);
+    expect("saturation" in f.props).toBe(false);
+  });
+
+  it("moves the kept hue live and commits it as one step", () => {
+    const f = field(render(), "Colour");
+    call(f, "onChange", { hue: 250 });
+    call(field(render(), "Colour"), "onChange", { hue: 260 });
+    expect(rig.develop.commits).toEqual([]);
+    call(f, "onCommit");
+    expect(readParams(rig.develop.store.getState().paramBag).keepHue).toBe(260);
+    expect(rig.develop.commits.map((c) => c.label)).toEqual(["Black & White hue"]);
+  });
+
+  it("offers Highlights, Shadows and Paper fields with their own hue and saturation", () => {
+    const tree = render();
+    expect(field(tree, "Highlights").props).toMatchObject({ hue: 30, saturation: 20 });
+    expect(field(tree, "Shadows").props).toMatchObject({ hue: 200, saturation: 35 });
+    expect(field(tree, "Paper").props).toMatchObject({ hue: 50, saturation: 5 });
+  });
+
+  it("writes a toning colour's hue and saturation together, one undo step", () => {
+    const f = field(render(), "Shadows");
+    call(f, "onChange", { hue: 210, saturation: 50 });
+    call(f, "onCommit");
+    expect(readParams(rig.develop.store.getState().paramBag)).toMatchObject({ shHue: 210, shSat: 50, hiHue: 30, hiSat: 20 });
+    expect(rig.develop.commits.map((c) => c.label)).toEqual(["Black & White shadows colour"]);
+  });
+
+  it("writes a paper colour to the paper's own keys", () => {
+    const f = field(render(), "Paper");
+    call(f, "onChange", { hue: 70, saturation: 8 });
+    call(f, "onCommit");
+    expect(readParams(rig.develop.store.getState().paramBag)).toMatchObject({ paperHue: 70, paperSat: 8 });
+    expect(rig.develop.commits.map((c) => c.label)).toEqual(["Black & White paper colour"]);
+  });
+
+  it("samples the photo with the treatment off, so the pick isn't grey", () => {
+    const tree = render();
+    for (const label of ["Colour", "Highlights", "Shadows", "Paper"]) {
+      expect(field(tree, label).props.pick).toEqual({ paramBag: off });
+    }
+  });
+
+  it("edits the mask's own bag through the fields", () => {
+    const photo = bwBag();
+    const mask = rig.inMask(bwBag());
+    const f = field(render(), "Highlights");
+    call(f, "onChange", { hue: 15, saturation: 40 });
+    call(f, "onCommit");
+    expect(readParams(mask.getState().bag)).toMatchObject({ hiHue: 15, hiSat: 40 });
+    expect(rig.develop.store.getState().paramBag).not.toEqual(photo);
+    expect(rig.maskCommits).toEqual(["Black & White highlights colour"]);
     expect(rig.develop.commits).toEqual([]);
   });
 });

@@ -47,10 +47,6 @@ export interface CatalogStoreState {
   activePhotoId: string | null;
 }
 
-export interface UIStoreState {
-  activeModule: string;
-}
-
 export interface OverlayRect {
   x: number;
   y: number;
@@ -257,6 +253,54 @@ export interface StackProps {
   style?: CSSProperties;
 }
 
+/** Display-encoded sRGB, 0 to 1. */
+export type Rgb = readonly [number, number, number];
+
+export interface Hsl {
+    /** Degrees, 0 to 360. */
+    hue: number;
+    /** Percent, 0 to 100. */
+    saturation: number;
+    /** Percent, 0 to 100. */
+    lightness: number;
+}
+
+/** The channels a field has: always hue, saturation and lightness when given. */
+export interface ColourValue {
+    hue: number;
+    saturation?: number;
+    lightness?: number;
+}
+
+export interface ColourFieldProps {
+    label: string;
+    /** Degrees, 0 to 360. */
+    hue: number;
+    /** Percent, 0 to 100. Leave it out for a hue-only field. */
+    saturation?: number;
+    /** Percent, 0 to 100. Give it for a field that also sets lightness. */
+    lightness?: number;
+    /** Live while a drag lasts, and once for a key, hex or pick; carries the
+     *  field's channels only. */
+    onChange(value: ColourValue): void;
+    /** A drag ended, or a key, hex or pick changed the colour. */
+    onCommit?(): void;
+    /** The colour to show for hue, saturation and lightness (a missing channel
+     *  comes as 100 and 50), display sRGB 0 to 1. Default: HSL. */
+    toRgb?(hue: number, saturation: number, lightness: number): Rgb;
+    /** A typed or picked colour (display sRGB 0 to 1) in the field's channels.
+     *  Default: HSL. */
+    fromRgb?(rgb: Rgb): Hsl;
+    /** The eyedropper. `true` (the default) takes the colour the view shows;
+     *  `{ paramBag }` samples a capture with that bag merged over the photo's,
+     *  to leave the extension's own effect out; `false` hides it. */
+    pick?: boolean | {
+        paramBag: Record<string, unknown>;
+    };
+    /** The swatch's tooltip. */
+    title?: string;
+}
+
 export interface UiKit {
   Button: ComponentType<ButtonProps>;
   Select: ComponentType<SelectProps>;
@@ -264,6 +308,14 @@ export interface UiKit {
   Section: ComponentType<SectionProps>;
   Row: ComponentType<RowProps>;
   Stack: ComponentType<StackProps>;
+  /** A colour control: a swatch as wide as the row that opens a picker under
+   *  it (a hue-by-saturation area, or a hue bar for a field without
+   *  saturation; a lightness bar for a field with lightness; a hex field),
+   *  and an eyedropper that takes the colour of the photo where it is
+   *  clicked. `toRgb` and `fromRgb` carry your own colour model (default HSL);
+   *  `pick: { paramBag }` samples a capture with that bag, to leave your own
+   *  effect out of the sample. Needs Safelight 3.2.8. */
+  ColourField(props: ColourFieldProps): import("react").JSX.Element;
   tokens: Readonly<Record<string, string>>;
 }
 
@@ -287,11 +339,17 @@ export interface SafelightAPI {
     Slider: ComponentType<SliderProps>;
   };
   ui: UiKit;
+  navigation: {
+    /** The module this window shows: a popped-out window's own module, else
+     *  the main window's tab. Ask it before acting on a Develop shortcut,
+     *  `current() === "develop"`, rather than reading the URL. Needs
+     *  Safelight 3.2.7. */
+    current(): string;
+  };
   stores: {
     create<T>(init: StateCreator<T>): StoreApi<T>;
     useDevelopStore: StoreApi<DevelopStoreState>;
     useCatalogStore: StoreApi<CatalogStoreState>;
-    useUIStore: StoreApi<UIStoreState>;
   };
   keybindings: {
     /** The action's current combo; "" when unbound. */

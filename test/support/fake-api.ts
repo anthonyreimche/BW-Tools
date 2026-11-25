@@ -139,6 +139,7 @@ export function fakePanelApi(bag: Record<string, unknown> = {}): PanelRig {
       Section: "Section",
       Row: "Row",
       Stack: "Stack",
+      ColourField: "ColourField",
       tokens: {},
     },
     stores: { create: fakeStore, useDevelopStore: develop.store },

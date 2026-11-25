@@ -1,5 +1,5 @@
-// The Develop panel. In Colour treatment it shows the treatment switch and
-// how to reach it; in Black & White, the conversion, the eight-colour mix
+// The Develop panel. In Colour treatment it shows the treatment switch (the
+// shortcut is in its tooltip); in Black & White, the conversion, the eight-colour mix
 // (with Auto and the target tool), selective colour and toning. Sliders write
 // the bag live and commit one undo step on release.
 //
@@ -25,7 +25,6 @@ import { store } from "./store";
 import { BAND_LABELS, CUSTOM_RESPONSE, FILTERS, RESPONSES, TONERS } from "./tables";
 
 const PAD: CSSProperties = { padding: "6px 8px 8px" };
-const HINT: CSSProperties = { margin: 0, fontSize: 10, lineHeight: 1.4, color: "var(--color-text-muted)" };
 const LABEL: CSSProperties = { fontSize: 11, color: "var(--color-text-secondary)", whiteSpace: "nowrap" };
 const GROW: CSSProperties = { flex: "1 1 auto", minWidth: 0 };
 const AUTO_FAILED_MS = 2000;
@@ -70,7 +69,7 @@ type Choice = "response" | "filterType" | "toner";
 
 export function BwPanel(): ReactElement {
   const { Slider } = api().components;
-  const { Button, Select, SegmentedControl, Section, Row, Stack } = api().ui;
+  const { Button, Select, SegmentedControl, Section, Row, Stack, ColourField } = api().ui;
   const scope = api().develop.useParamScope();
   const inMask = scope.maskId !== null;
   const photoId = api().stores.useDevelopStore((s) => s.photoId);
@@ -96,6 +95,26 @@ export function BwPanel(): ReactElement {
       trackBackground: track,
       onChange: (v: number) => write(fieldPatch(key, v)),
       onCommit: () => commit(label.toLowerCase()),
+    });
+
+  // The eyedropper samples the photo as it was before the conversion: the
+  // treatment off, so the pick is the colour the stages receive, not grey.
+  const pick = { paramBag: treatmentPatch(false) };
+
+  const colourField = (label: string, hueKey: NumericKey, satKey?: NumericKey) =>
+    h(ColourField, {
+      key: `colour-${hueKey}`,
+      label,
+      hue: p[hueKey],
+      ...(satKey ? { saturation: p[satKey] } : {}),
+      pick,
+      title: satKey ? `Choose the ${label.toLowerCase()} colour, or pick it from the photo` : "Choose the colour to keep, or pick it from the photo",
+      onChange: (v: { hue: number; saturation?: number }) =>
+        write({
+          ...fieldPatch(hueKey, v.hue),
+          ...(satKey && v.saturation !== undefined ? fieldPatch(satKey, v.saturation) : {}),
+        }),
+      onCommit: () => commit(satKey ? `${label.toLowerCase()} colour` : "hue"),
     });
 
   const bandSlider = (label: string, i: number) =>
@@ -147,15 +166,16 @@ export function BwPanel(): ReactElement {
     size: "sm",
     options: [
       { value: "colour", label: "Colour" },
-      { value: "bw", label: "Black & White" },
+      {
+        value: "bw",
+        label: "Black & White",
+        title: inMask ? MASK_COLOUR_HINT : colourHint(api().keybindings.getBinding(TOGGLE_ACTION)),
+      },
     ],
     onChange: (v: string) => setTreatment(v === "bw"),
   });
 
-  if (!p.on) {
-    const hint = inMask ? MASK_COLOUR_HINT : colourHint(api().keybindings.getBinding(TOGGLE_ACTION));
-    return h(Stack, { gap: 6, style: PAD }, treatment, h("p", { key: "hint", style: HINT }, hint));
-  }
+  if (!p.on) return h(Stack, { gap: 6, style: PAD }, treatment);
 
   const custom = p.response === CUSTOM_RESPONSE;
   const mixTools = inMask
@@ -197,10 +217,13 @@ export function BwPanel(): ReactElement {
         Stack,
         { gap: 4 },
         choice("Response", "response", RESPONSES),
-        custom ? slider("Red", "mixR", -200, 200) : null,
-        custom ? slider("Green", "mixG", -200, 200) : null,
-        custom ? slider("Blue", "mixB", -200, 200) : null,
-        custom ? h("p", { key: "weights", style: HINT }, weightsReadout(p)) : null,
+        custom
+          ? h(
+              "div",
+              { key: "weights", title: weightsReadout(p) },
+              h(Stack, { gap: 4 }, slider("Red", "mixR", -200, 200), slider("Green", "mixG", -200, 200), slider("Blue", "mixB", -200, 200)),
+            )
+          : null,
         choice("Filter", "filterType", FILTERS),
         p.filterType !== 0 ? slider("Strength", "filterStrength", 0, 100) : null,
       ),
@@ -216,6 +239,7 @@ export function BwPanel(): ReactElement {
       h(
         Stack,
         { gap: 1 },
+        colourField("Colour", "keepHue"),
         slider("Hue", "keepHue", 0, 360, HUE_TRACK),
         slider("Range", "keepRange", 5, 90),
         slider("Amount", "keepAmount", 0, 100),
@@ -229,11 +253,14 @@ export function BwPanel(): ReactElement {
         { gap: 4 },
         choice("Toner", "toner", TONERS),
         p.toner !== 0 ? slider("Strength", "tonerStrength", 0, 100) : null,
+        colourField("Highlights", "hiHue", "hiSat"),
         slider("Highlights hue", "hiHue", 0, 360, HUE_TRACK),
         slider("Highlights saturation", "hiSat", 0, 100),
+        colourField("Shadows", "shHue", "shSat"),
         slider("Shadows hue", "shHue", 0, 360, HUE_TRACK),
         slider("Shadows saturation", "shSat", 0, 100),
         slider("Balance", "balance", -100, 100),
+        colourField("Paper", "paperHue", "paperSat"),
         slider("Paper hue", "paperHue", 0, 360, HUE_TRACK),
         slider("Paper saturation", "paperSat", 0, 100),
       ),

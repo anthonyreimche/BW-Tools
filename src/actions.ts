@@ -20,15 +20,8 @@ export interface ToggleDeps {
   inDevelop(): boolean;
 }
 
-/** Whether this window is showing Develop. A window popped out of Develop
- *  (`?detached=develop`) keeps an active module of its own, and the host sends
- *  extension key actions to it without looking at the module. */
-export function developActive(activeModule: string, search: string): boolean {
-  return activeModule === "develop" || new URLSearchParams(search).get("detached") === "develop";
-}
-
 function liveInDevelop(): boolean {
-  return developActive(api().stores.useUIStore.getState().activeModule, globalThis.location?.search ?? "");
+  return api().navigation.current() === "develop";
 }
 
 function liveToggleDeps(): ToggleDeps {

@@ -3,7 +3,6 @@ import {
   LABEL_BW,
   LABEL_COLOUR,
   convertPhotos,
-  developActive,
   menuLabel,
   runAuto,
   toggleTreatment,
@@ -12,24 +11,6 @@ import {
 import type { FrameSample } from "../src/frame";
 import { CONVERT_ID, KEY, isOn, readParams, treatmentPatch } from "../src/params";
 import { fakeDevelop } from "./support/fake-api";
-
-describe("developActive", () => {
-  it("is true in the Develop module", () => {
-    expect(developActive("develop", "")).toBe(true);
-  });
-
-  it("is false in the Library", () => {
-    expect(developActive("library", "")).toBe(false);
-    expect(developActive("library", "?detached=library")).toBe(false);
-  });
-
-  // A popped-out Develop window keeps its own active module, which is not
-  // necessarily "develop", and core hands it extension key actions regardless.
-  it("is true in a window popped out of Develop", () => {
-    expect(developActive("library", "?detached=develop")).toBe(true);
-    expect(developActive("library", "?theme=dark&detached=develop")).toBe(true);
-  });
-});
 
 describe("toggleTreatment", () => {
   it("does nothing outside Develop or without a photo", () => {

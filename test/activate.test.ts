@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { LABEL_BW } from "../src/actions";
 import { activate, deactivate } from "../src/index";
 import { BwPanel } from "../src/Panel";
@@ -12,7 +12,6 @@ import type {
   ProcessingStageContribution,
   SafelightAPI,
   SlotContribution,
-  UIStoreState,
 } from "../src/safelight";
 import { store } from "../src/store";
 import { fakeDevelop, fakeStore } from "./support/fake-api";
@@ -29,7 +28,7 @@ function fakeApi() {
     picks: [] as (PickDragTool | null)[],
   };
   const dev = fakeDevelop(new Map([["p", {}]]));
-  const ui = fakeStore<UIStoreState>({ activeModule: "develop" });
+  const nav = { module: "develop" };
   const catalog = fakeStore<CatalogStoreState>({ photos: [], activePhotoId: null });
   const host = {
     version: 1,
@@ -41,15 +40,15 @@ function fakeApi() {
     unregisterSlot: (id: string) => void registered.unregisteredSlots.push(id),
     registerKeybinding: (c: KeyActionContribution) => void registered.keys.push(c),
     registerGridMenuItem: (c: GridMenuItemContribution) => void registered.items.push(c),
-    stores: { create: fakeStore, useDevelopStore: dev.store, useUIStore: ui, useCatalogStore: catalog },
+    navigation: { current: () => nav.module },
+    stores: { create: fakeStore, useDevelopStore: dev.store, useCatalogStore: catalog },
     develop: { setPickDrag: (tool: PickDragTool | null) => void registered.picks.push(tool) },
   } as unknown as SafelightAPI;
-  return { host, registered, dev, ui };
+  return { host, registered, dev, nav };
 }
 
 describe("activate", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
     deactivate();
   });
 
@@ -93,17 +92,16 @@ describe("activate", () => {
     expect(dev.commits.map((c) => c.label)).toEqual([LABEL_BW]);
   });
 
-  // A window popped out of Develop gets the key action while its own active
-  // module may read otherwise; its URL says what it is.
-  it("toggles from a window popped out of Develop, and not from a Library window", async () => {
-    const { host, registered, dev, ui } = fakeApi();
+  // A window popped out of Develop gets the key action whatever the main
+  // window shows; navigation says which module this window is.
+  it("toggles in Develop, in the main window or popped out, and not from another module's window", async () => {
+    const { host, registered, dev, nav } = fakeApi();
     activate(host);
     await dev.store.getState().loadEdit("p");
-    ui.setState({ activeModule: "library" });
-    vi.stubGlobal("location", { search: "?detached=library" });
+    nav.module = "library";
     registered.keys[0].handler();
     expect(dev.commits).toEqual([]);
-    vi.stubGlobal("location", { search: "?detached=develop" });
+    nav.module = "develop";
     registered.keys[0].handler();
     expect(dev.commits.map((c) => c.label)).toEqual([LABEL_BW]);
   });
