@@ -1076,6 +1076,7 @@ function xt(e) {
 			order: 12,
 			width: 280
 		},
+		modules: ["develop"],
 		onReset: bt,
 		mask: {
 			component: Ue,

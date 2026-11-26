@@ -36,6 +36,7 @@ export function activate(host: SafelightAPI): void {
     component: BwPanel,
     // Just below core HSL (order 11), which the mix stands in for in B&W.
     defaultDock: { module: "develop", direction: "right", order: 12, width: 280 },
+    modules: ["develop"],
     onReset: reset,
     // The same panel edits a mask's conversion and toning in the Masking
     // panel's Adjust tab. It writes every key of both stages, flags included.
